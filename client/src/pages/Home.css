@@ -1,0 +1,56 @@
+.home-layout {
+  display: grid;
+  grid-template-columns: 245px 1fr 320px;
+  /* Sidebar | Feed | Suggestions */
+  max-width: 100%;
+  margin: 0 auto;
+  min-height: 100vh;
+  gap: 20px;
+
+  /* Animated Background removed - using global body gradient */
+}
+
+@keyframes gradientBG {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Responsive: Hide Right Sidebar on medium screens */
+@media (max-width: 1000px) {
+  .home-layout {
+    grid-template-columns: 80px 1fr;
+    /* Sidebar collapses to icons only */
+  }
+
+  /* We might need to handle hiding right sidebar in JS or CSS display none on the child */
+  .home-layout> :nth-child(3) {
+    display: none;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .home-layout {
+    grid-template-columns: 1fr;
+    padding-bottom: 60px;
+    /* Space for bottom nav if we add one */
+  }
+
+  .home-layout> :nth-child(1) {
+    display: none;
+    /* Hide left sidebar on mobile, assuming user will add top/bottom nav */
+  }
+
+  .home-layout> :nth-child(3) {
+    display: none;
+  }
+}

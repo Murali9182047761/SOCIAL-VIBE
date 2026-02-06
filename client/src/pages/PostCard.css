@@ -1,0 +1,58 @@
+.post-card {
+  .post-card {
+    background: white;
+    border-radius: 14px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+    margin-bottom: 25px;
+    overflow: hidden;
+  }
+
+  /* Header */
+  .post-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .post-avatar {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .post-header h4 {
+    margin: 0;
+  }
+
+  .post-time {
+    font-size: 12px;
+    color: gray;
+  }
+
+  /* Image */
+  .post-image {
+    width: 100%;
+    height: 420px;
+    object-fit: cover;
+  }
+
+  /* Actions */
+  .post-actions {
+    display: flex;
+    gap: 18px;
+    padding: 12px 16px;
+    font-size: 20px;
+    cursor: pointer;
+  }
+
+  .post-actions svg:hover {
+    color: #6a5af9;
+  }
+
+  /* Caption */
+  .post-caption {
+    padding: 0 16px 16px;
+    font-size: 14px;
+  }

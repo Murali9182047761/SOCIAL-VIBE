@@ -1,0 +1,61 @@
+/* Shortcuts Card Style */
+.shortcuts-card {
+  background: var(--card-background);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--shadow-soft);
+}
+
+.sidebar-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 15px;
+  color: var(--text-primary);
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  text-decoration: none;
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.sidebar-item:hover {
+  transform: translateX(3px);
+  color: var(--text-primary);
+}
+
+.sidebar-item .icon {
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.left-sidebar {
+  width: 260px;
+  position: sticky;
+  top: 80px;
+  /* Below Navbar */
+  height: fit-content;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 1000px) {
+  .left-sidebar {
+    display: none;
+  }
+}
