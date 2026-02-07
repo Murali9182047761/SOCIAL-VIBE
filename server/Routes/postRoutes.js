@@ -1,5 +1,5 @@
 const express = require("express");
-const { getFeedPosts, getUserPosts, likePost, commentPost, createPost, deletePost, updatePost, pinPost, votePoll, deleteComment } = require("../controllers/postController");
+const { getFeedPosts, getUserPosts, likePost, commentPost, createPost, deletePost, updatePost, pinPost, votePoll, deleteComment, archivePost } = require("../controllers/postController");
 const upload = require("../middleware/upload");
 // const { verifyToken } = require("../middleware/auth"); 
 
@@ -15,6 +15,7 @@ router.post("/", upload.array("picture", 10), createPost); // Allow up to 10 fil
 /* UPDATE */
 router.patch("/:id/like", likePost);
 router.post("/:id/comment", commentPost);
+router.patch("/:id/archive", archivePost);
 
 /* DELETE */
 router.delete("/:id", deletePost);

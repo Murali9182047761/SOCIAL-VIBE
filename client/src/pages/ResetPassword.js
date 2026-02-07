@@ -1,7 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 import { API_URL } from "../config";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import "./Auth.css";
 
 const ResetPassword = () => {

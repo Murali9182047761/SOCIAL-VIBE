@@ -114,6 +114,22 @@ const PostCard = ({ post, user, refreshPosts }) => {
         }
     };
 
+    // Handle Archive
+    const handleArchive = async () => {
+        try {
+            const res = await axios.patch(
+                `${API_URL}/posts/${post._id}/archive`,
+                { userId: user._id },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            alert(res.data.status === "archived" ? "Post archived successfully." : "Post unarchived successfully.");
+            if (refreshPosts) refreshPosts();
+        } catch (err) {
+            console.log("Error archiving post:", err);
+            alert("Failed to archive post.");
+        }
+    };
+
     // Handle Edit
     const handleEditSubmit = async () => {
         try {
@@ -307,6 +323,13 @@ const PostCard = ({ post, user, refreshPosts }) => {
                             title={isPinned ? "Unpin Post" : "Pin Post"}
                         >
                             📌
+                        </button>
+                        <button
+                            onClick={handleArchive}
+                            style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.2rem", transition: "transform 0.2s" }}
+                            title={post.status === "archived" ? "Unarchive Post" : "Archive Post"}
+                        >
+                            📦
                         </button>
                         <button
                             onClick={() => setIsEditing(!isEditing)}

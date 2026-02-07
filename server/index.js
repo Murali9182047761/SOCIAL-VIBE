@@ -7,34 +7,37 @@ const path = require("path");
 require("dotenv").config();
 
 const app = express();
+app.set("trust proxy", 1);
 const server = http.createServer(app);
 const PORT = process.env.PORT || 4000;
 
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: [process.env.CLIENT_URL, "http://localhost:3000"],
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
+    credentials: true,
   },
 });
 
 app.set("io", io);
 
-
-
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: [process.env.CLIENT_URL, "http://localhost:3000"],
+  credentials: true,
+}));
 app.use("/assets", express.static(path.join(__dirname, "public/assets")));
 
 // Routes
-app.use("/api/auth", require("./Routes/authRoutes"));
-app.use("/api/user", require("./Routes/userRoutes"));
-app.use("/api/posts", require("./Routes/postRoutes"));
-app.use("/api/stories", require("./Routes/storyRoutes"));
-app.use("/api/messages", require("./Routes/messageRoutes"));
-app.use("/api/chat", require("./Routes/chatRoutes"));
-app.use("/api/notifications", require("./Routes/notificationRoutes"));
-app.use("/api/search", require("./Routes/searchRoutes"));
-app.use("/api/analytics", require("./Routes/analyticsRoutes"));
+app.use("/api/auth", require("./routes/authRoutes"));
+app.use("/api/user", require("./routes/userRoutes"));
+app.use("/api/posts", require("./routes/postRoutes"));
+app.use("/api/stories", require("./routes/storyRoutes"));
+app.use("/api/messages", require("./routes/messageRoutes"));
+app.use("/api/chat", require("./routes/chatRoutes"));
+app.use("/api/notifications", require("./routes/notificationRoutes"));
+app.use("/api/search", require("./routes/searchRoutes"));
+app.use("/api/analytics", require("./routes/analyticsRoutes"));
 
 // Socket.io
 let onlineUsers = [];
@@ -98,6 +101,12 @@ mongoose
     setInterval(async () => {
       try {
         const now = new Date();
+        // console.log("Checking for scheduled posts at:", now);
+
+        // DEBUG: Check how many scheduled posts exist in total
+        const totalScheduled = await Post.countDocuments({ status: "scheduled" });
+        if (totalScheduled > 0) console.log(`Total scheduled posts in DB: ${totalScheduled}, Time: ${now}`);
+
         const postsToPublish = await Post.find({
           status: "scheduled",
           scheduledAt: { $lte: now }
@@ -118,7 +127,7 @@ mongoose
       } catch (err) {
         console.error("Error checking scheduled posts:", err);
       }
-    }, 30000); // 30 seconds
+    }, 5000); // Check every 5 seconds for debugging (was 30000)
   })
   .catch((err) => {
     console.error("\x1b[31m%s\x1b[0m", "MongoDB connection failed: " + err.message);

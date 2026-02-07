@@ -54,6 +54,8 @@ const UserSchema = new mongoose.Schema(
       pushNotifications: { type: Boolean, default: true },
     },
     twoFactorEnabled: { type: Boolean, default: false },
+    twoFactorCode: String,
+    twoFactorExpires: Date,
     resetPasswordToken: String,
     resetPasswordExpires: Date,
     flags: {

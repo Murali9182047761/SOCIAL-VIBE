@@ -13,6 +13,7 @@ router.post("/update-password", authMiddleware, authController.updatePassword);
 
 // ✅ PASSWORD RESET ROUTES
 router.post("/forgot-password", authController.forgotPassword);
+router.post("/verify-2fa", authController.verify2FA);
 router.put("/reset-password/:resetToken", authController.resetPassword);
 
 module.exports = router;

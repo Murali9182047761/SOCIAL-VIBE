@@ -13,48 +13,43 @@ MVS Media is a full-stack social media application inspired by platforms such as
 
 ---
 
-## 2. Methodology & Features
+## 2. Comprehensive Feature List
 
-### a. Requirement Analysis
+### 🔐 Authentication & Security
+* **Secure Login & Signup**: JWT-based authentication for secure session management.
+* **Google OAuth**: Integrated Google Sign-In for quick access.
+* **Password Management**: Forgot Password and Reset Password functionality using email verification (Nodemailer).
+* **Account Control**: Two-Factor Authentication (2FA) support and permanent account deletion.
 
-* **Core User Needs**: User registration, login, content feed, post creation, and profile management
-* **Design Theme**: Modern violet/purple aesthetic with a clean and intuitive layout
+### 📱 Social Feed & Content
+* **Dynamic Feed**: Personalized feeds showing posts from followed users.
+* **Wellness Feed**: Specialized feed filtering positive content for mental well-being.
+* **Post Creation**: Create rich posts with text and image support (Multer).
+* **AI Sentiment Analysis**: Integrated AI detection to analyze post sentiment (Positive/Neutral/Negative).
+* **Interactions**: Like, Unlike, and Comment on posts.
+* **Post Management**: Edit, Delete, and Archive posts.
+* **Saved Posts**: Bookmark/Save posts for later viewing.
 
-### b. Frontend Development (Client)
+### 🤝 User Connections & Networking
+* **Follow System**: Follow/Unfollow users to build your network.
+* **Follow Requests**: Manage privacy with Accept/Decline options for private accounts.
+* **Profile Management**: Customizable user profiles with stats (Followers/Following) and bio.
+* **User Search**: robust search functionality to find users and content.
 
-The frontend is built using **React.js** and focuses on usability and performance.
+### 💬 Communication & Engagement
+* **Real-time Chat**: Instant messaging system for one-on-one conversations.
+* **Notifications**: Real-time alerts for likes, comments, follows, and interactions.
+* **Privacy Alerts**: Notification when someone takes a screenshot of a profile.
+* **Stories**: Share ephemeral moments that last for 24 hours.
 
-**Key Features**:
+### 📊 Analytics & Insights
+* **User Analytics**: Dashboard tracking engagement metrics and user activity.
+* **Content Insights**: Tracking post performance.
 
-* **Authentication Pages**: Secure login and signup forms
-* **Home Feed**: Displays posts and stories dynamically
-* **Create Post**: Modal interface for uploading images with captions
-* **Profile Page**: User information, follower/following statistics, and post gallery
-* **Sidebars**:
-
-  * *Left Sidebar*: Navigation menu and profile card
-  * *Right Sidebar*: Trending topics and user suggestions
-
-### c. Backend Development (Server)
-
-The backend is implemented using **Node.js**, **Express**, and **MongoDB**.
-
-**Core Components**:
-
-* **RESTful APIs**: Separate routes for authentication, users, posts, and stories
-* **Database**: MongoDB with Mongoose schemas for structured data handling
-* **Authentication**: JWT-based authentication for secure access control
-
-### d. Media Handling
-
-* **File Uploads**: Managed using `multer` for handling multipart/form-data
-* **Storage**: Media files are stored locally in `server/public/assets` and served statically
-
-### e. User Interactions
-
-* **Likes**: Instant visual feedback on post likes
-* **Comments**: Users can comment on posts
-* **Follow System**: Users can follow/unfollow others to personalize their feed
+### 🎨 UI/UX Design
+* **Modern Interface**: Clean, visually appealing design with a violet/purple aesthetic.
+* **Responsive Layout**: Optimized for various screen sizes using a Sidebar layout.
+* **Communities**: (Beta) Interface for joining and interacting within interest groups.
 
 ---
 
@@ -62,19 +57,25 @@ The backend is implemented using **Node.js**, **Express**, and **MongoDB**.
 
 ### Frontend
 
-* React (Create React App)
-* React Router DOM
-* Redux (State management – scalable for future use)
-* CSS3 (Flexbox, Grid, custom variables)
-* Material UI / React Icons
+* **React.js** (v19)
+* **React Router DOM**
+* **Socket.io Client**
+* **Framer Motion**
+* **React Icons**
+* **Emoji Picker React**
+* **React Infinite Scroll**
+* **CSS3** (Values & Modules)
 
 ### Backend
 
-* Node.js & Express
-* MongoDB & Mongoose
-* JSON Web Token (JWT)
-* Multer (File uploads)
-* Bcrypt (Password hashing)
+* **Node.js & Express**
+* **MongoDB & Mongoose**
+* **Socket.io** (Real-time)
+* **JWT** (Authentication)
+* **Nodemailer** (Email)
+* **Multer** (Uploads)
+* **Google Auth Library**
+* **Bcrypt**
 
 ---
 
@@ -105,6 +106,9 @@ Create a `.env` file inside the `server` directory:
 MONGO_URL=mongodb://localhost:27017/mvsmedia
 JWT_SECRET=your_super_secret_key
 PORT=4000
+EMAIL=your_email@gmail.com
+EMAIL_PASSWORD=your_email_app_password
+CLIENT_URL=http://localhost:3000
 ```
 
 Start the backend server:
@@ -156,9 +160,10 @@ mvsmedia/
 
 ## 7. Future Enhancements
 
-* Deployment using **Vercel** (Frontend) and **Render/Heroku** (Backend)
-* Real-time chat and notifications using **Socket.io**
-* Support for video uploads and streaming
+* **Video Streaming**: Support for uploading and viewing video content.
+* **Voice Notes**: Ability to send voice messages in chat.
+* **Advanced Content Moderation**: Automated filtering of inappropriate content.
+* **Mobile App**: React Native version for iOS and Android.
 
 ---
 
@@ -168,10 +173,4 @@ MVS Media demonstrates a complete MERN stack social media application with moder
 
 ---
 
-© 2023 MVS Media
-# SOCIAL-MEDIA
-# SOCIAL-MEDIA
-# SOCIAL-MEDIA
-# SOCIAL-MEDIA
-# SOCIAL-VIBE
-# SOCIAL-VIBE
+© 2026 MVS Media

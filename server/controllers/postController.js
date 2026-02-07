@@ -551,6 +551,28 @@ const pinPost = async (req, res) => {
     }
 };
 
+const archivePost = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { userId } = req.body;
+
+        const post = await Post.findById(id);
+        if (!post) return res.status(404).json({ message: "Post not found" });
+
+        if (post.userId !== userId) {
+            return res.status(403).json({ message: "Unauthorized" });
+        }
+
+        // Toggle archived status
+        post.status = post.status === "archived" ? "published" : "archived";
+        await post.save();
+
+        res.status(200).json(post);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+};
+
 module.exports = {
     createPost,
     getFeedPosts,
@@ -561,5 +583,7 @@ module.exports = {
     updatePost,
     pinPost,
     votePoll,
-    deleteComment
+    deleteComment,
+    editComment,
+    archivePost
 };

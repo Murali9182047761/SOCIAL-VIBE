@@ -34,7 +34,7 @@ const PostSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["published", "draft", "scheduled"],
+      enum: ["published", "draft", "scheduled", "archived"],
       default: "published",
     },
     scheduledAt: {

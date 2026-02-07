@@ -12,21 +12,47 @@ function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState("");
+  const [show2FA, setShow2FA] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [tempUserId, setTempUserId] = useState(null);
 
   const navigate = useNavigate();
 
   const handleLogin = async () => {
     try {
+      setMessage("");
       const res = await axios.post(
         `${API_URL}/auth/login`,
         { email, password }
+      );
+
+      if (res.data.twoFactorRequired) {
+        setShow2FA(true);
+        setTempUserId(res.data.userId);
+        setMessage("Please enter the 6-digit code sent to your email.");
+      } else {
+        localStorage.setItem("token", res.data.token);
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+        navigate("/home");
+      }
+    } catch (error) {
+      setMessage(error.response?.data?.message || "Login failed");
+    }
+  };
+
+  const handleVerify2FA = async () => {
+    try {
+      setMessage("");
+      const res = await axios.post(
+        `${API_URL}/auth/verify-2fa`,
+        { userId: tempUserId, code: otp }
       );
 
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data.user));
       navigate("/home");
     } catch (error) {
-      setMessage(error.response?.data?.message || "Login failed");
+      setMessage(error.response?.data?.message || "Invalid 2FA code");
     }
   };
 
@@ -54,71 +80,120 @@ function Login() {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
       >
-        <h1 className="auth-title">Welcome Back</h1>
-        <p className="auth-subtitle">Sign in to continue</p>
+        <h1 className="auth-title">
+          {show2FA ? "Two-Factor Auth" : "Welcome Back"}
+        </h1>
+        <p className="auth-subtitle">
+          {show2FA ? "Enter code sent to email" : "Sign in to continue"}
+        </p>
 
-        <div className="input-group">
-          <label className="input-label">Email or Username</label>
-          <input
-            className="auth-input"
-            placeholder="user@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-
-        <div className="input-group">
-          <label className="input-label">Password</label>
-          <div className="input-wrapper">
-            <input
-              className="auth-input"
-              type={showPassword ? "text" : "password"}
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <div
-              className="password-toggle-icon"
-              onClick={() => setShowPassword(!showPassword)}
-            >
-              {showPassword ? <IoEyeOff /> : <IoEye />}
+        {!show2FA ? (
+          <>
+            <div className="input-group">
+              <label className="input-label">Email or Username</label>
+              <input
+                className="auth-input"
+                placeholder="user@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </div>
-          </div>
-        </div>
 
-        <div style={{ textAlign: "right", marginTop: "-10px", marginBottom: "20px" }}>
-          <Link to="/forgot-password" style={{ color: "var(--primary-color)", fontSize: "14px", textDecoration: "none" }}>
-            Forgot Password?
-          </Link>
-        </div>
+            <div className="input-group">
+              <label className="input-label">Password</label>
+              <div className="input-wrapper">
+                <input
+                  className="auth-input"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <div
+                  className="password-toggle-icon"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <IoEyeOff /> : <IoEye />}
+                </div>
+              </div>
+            </div>
 
-        <motion.button
-          className="auth-button"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={handleLogin}
-        >
-          Sign In
-        </motion.button>
+            <div style={{ textAlign: "right", marginTop: "-10px", marginBottom: "20px" }}>
+              <Link to="/forgot-password" style={{ color: "var(--primary-color)", fontSize: "14px", textDecoration: "none" }}>
+                Forgot Password?
+              </Link>
+            </div>
 
-        <div style={{ margin: "20px 0", display: "flex", justifyContent: "center" }}>
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={() => {
-              console.log('Login Failed');
-              setMessage("Google Login Failed");
-            }}
-            shape="pill"
-            width="100%"
-          />
-        </div>
+            <motion.button
+              className="auth-button"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleLogin}
+            >
+              Sign In
+            </motion.button>
+
+            <div style={{ margin: "20px 0", display: "flex", justifyContent: "center" }}>
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => {
+                  console.log('Login Failed');
+                  setMessage("Google Login Failed");
+                }}
+                shape="pill"
+                width="100%"
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="input-group">
+              <label className="input-label">6-Digit Code</label>
+              <input
+                className="auth-input"
+                placeholder="000000"
+                maxLength={6}
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                style={{ textAlign: "center", fontSize: "24px", letterSpacing: "8px" }}
+              />
+            </div>
+
+            <motion.button
+              className="auth-button"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleVerify2FA}
+            >
+              Verify & Login
+            </motion.button>
+
+            <button
+              onClick={() => setShow2FA(false)}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--text-secondary)",
+                fontSize: "14px",
+                marginTop: "15px",
+                cursor: "pointer"
+              }}
+            >
+              Back to Login
+            </button>
+          </>
+        )}
 
         <div className="auth-footer">
           Don’t have an account?
           <Link to="/signup" className="auth-link">Sign Up</Link>
         </div>
 
-        {message && <p className="auth-error">{message}</p>}
+        {message && (
+          <p className={show2FA && otp.length === 0 ? "auth-info" : "auth-error"}>
+            {message}
+          </p>
+        )}
       </motion.div>
     </div>
   );

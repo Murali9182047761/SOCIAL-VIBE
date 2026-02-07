@@ -40,7 +40,7 @@ exports.register = async (req, res) => {
 
     const token = jwt.sign(
       { id: user._id },
-      "secretkey",
+      process.env.JWT_SECRET || "secretkey",
       { expiresIn: "1d" }
     );
 
@@ -78,6 +78,27 @@ exports.login = async (req, res) => {
       await user.save();
     }
 
+    // Check if 2FA is enabled
+    if (user.twoFactorEnabled) {
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      user.twoFactorCode = otp;
+      user.twoFactorExpires = Date.now() + 5 * 60 * 1000; // 5 mins
+      await user.save();
+
+      await sendEmail({
+        email: user.email,
+        subject: "Your 2FA Login Code",
+        message: `Your login code is: ${otp}. It will expire in 5 minutes.`,
+        html: `<h1>Two-Factor Authentication</h1><p>Your login code is: <b>${otp}</b></p><p>This code will expire in 5 minutes.</p>`,
+      });
+
+      return res.status(200).json({
+        twoFactorRequired: true,
+        userId: user._id,
+        message: "2FA code sent to your email"
+      });
+    }
+
     const token = jwt.sign(
       { id: user._id },
       "secretkey",
@@ -91,6 +112,39 @@ exports.login = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+// ================= VERIFY 2FA =================
+exports.verify2FA = async (req, res) => {
+  try {
+    const { userId, code } = req.body;
+    const user = await User.findById(userId);
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (user.twoFactorCode !== code || Date.now() > user.twoFactorExpires) {
+      return res.status(400).json({ message: "Invalid or expired 2FA code" });
+    }
+
+    // Clear code
+    user.twoFactorCode = undefined;
+    user.twoFactorExpires = undefined;
+    await user.save();
+
+    const token = jwt.sign(
+      { id: user._id },
+      process.env.JWT_SECRET || "secretkey",
+      { expiresIn: "1d" }
+    );
+
+    res.status(200).json({
+      message: "2FA Successful",
+      token,
+      user
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
@@ -317,4 +371,14 @@ exports.resetPassword = async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+};
+module.exports = {
+  register: exports.register,
+  login: exports.login,
+  getProfile: exports.getProfile,
+  googleLogin: exports.googleLogin,
+  updatePassword: exports.updatePassword,
+  forgotPassword: exports.forgotPassword,
+  resetPassword: exports.resetPassword,
+  verify2FA: exports.verify2FA
 };
