@@ -12,16 +12,26 @@ app.set("trust proxy", 1);
 const server = http.createServer(app);
 const PORT = process.env.PORT || 4000;
 
-// ✅ SAFE ORIGINS (avoids undefined error)
+// ===== ALLOWED ORIGINS =====
 const allowedOrigins = [
   process.env.CLIENT_URL,
-  "http://localhost:3000"
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://social-vibe-two.vercel.app",
+  "https://social-vibe-two.vercel.app/"
 ].filter(Boolean);
 
-// SOCKET.IO
+// ===== SOCKET.IO =====
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.some(o => o.replace(/\/$/, "") === origin.replace(/\/$/, ""))) {
+        callback(null, true);
+      } else {
+        console.log("Socket.io CORS Rejected Origin:", origin);
+        callback(new Error("CORS Not Allowed"));
+      }
+    },
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
     credentials: true,
   },
@@ -29,16 +39,29 @@ const io = new Server(server, {
 
 app.set("io", io);
 
-// MIDDLEWARE
+// ===== MIDDLEWARE =====
 app.use(express.json());
+
 app.use(cors({
-  origin: allowedOrigins,
+  origin: function (origin, callback) {
+    // allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    const isAllowed = allowedOrigins.some(o => o.replace(/\/$/, "") === origin.replace(/\/$/, ""));
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log("Express CORS Rejected Origin:", origin);
+      callback(new Error("CORS Not Allowed"));
+    }
+  },
   credentials: true,
 }));
 
 app.use("/assets", express.static(path.join(__dirname, "public/assets")));
 
-// ROUTES
+// ===== ROUTES =====
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/user", require("./routes/userRoutes"));
 app.use("/api/posts", require("./routes/postRoutes"));
@@ -49,7 +72,7 @@ app.use("/api/notifications", require("./routes/notificationRoutes"));
 app.use("/api/search", require("./routes/searchRoutes"));
 app.use("/api/analytics", require("./routes/analyticsRoutes"));
 
-// SOCKET LOGIC
+// ===== SOCKET LOGIC =====
 let onlineUsers = [];
 
 io.on("connection", (socket) => {
@@ -92,54 +115,50 @@ io.on("connection", (socket) => {
   });
 });
 
-// TEST ROUTE
+// ===== TEST ROUTE =====
 app.get("/", (req, res) => {
   res.send("Backend working 🚀");
 });
 
-// MONGODB
+// ===== START SERVER =====
+server.listen(PORT, () => {
+  console.log("\x1b[32m%s\x1b[0m", `🚀 Server running on port ${PORT}`);
+  console.log("Allowed Origins:", allowedOrigins);
+});
+
+// ===== MONGODB =====
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
+    console.log("\x1b[32m%s\x1b[0m", "✅ MongoDB connected");
+
+    // ===== SCHEDULED POSTS CHECK =====
     const Post = require("./models/Post");
-
-    console.log("\x1b[32m%s\x1b[0m", "MongoDB connected");
-
-    server.listen(PORT, () => {
-      console.log("\x1b[32m%s\x1b[0m", `Server running on port ${PORT}`);
-    });
-
-    // SCHEDULED POSTS CHECK
     setInterval(async () => {
       try {
         const now = new Date();
-
-        const totalScheduled = await Post.countDocuments({ status: "scheduled" });
-        if (totalScheduled > 0)
-          console.log(`Total scheduled posts in DB: ${totalScheduled}, Time: ${now}`);
-
         const postsToPublish = await Post.find({
           status: "scheduled",
           scheduledAt: { $lte: now }
         });
 
         if (postsToPublish.length > 0) {
-          console.log(`Found ${postsToPublish.length} posts to publish.`);
-
+          console.log(`📡 Publishing ${postsToPublish.length} scheduled posts.`);
           for (const post of postsToPublish) {
             post.status = "published";
             post.scheduledAt = undefined;
             await post.save();
-
             io.emit("new-post", post);
-            console.log(`Published post ${post._id}`);
           }
         }
       } catch (err) {
-        console.error("Error checking scheduled posts:", err);
+        console.error("❌ Error checking scheduled posts:", err);
       }
-    }, 30000); // back to 30 seconds
+    }, 30000);
   })
   .catch((err) => {
-    console.error("\x1b[31m%s\x1b[0m", "MongoDB connection failed: " + err.message);
+    console.error("\x1b[31m%s\x1b[0m", "❌ MongoDB connection failed: " + err.message);
+    console.log("Tip: Check your MONGO_URI and IP Whitelist on MongoDB Atlas (allow 0.0.0.0/0)");
   });
+
+
