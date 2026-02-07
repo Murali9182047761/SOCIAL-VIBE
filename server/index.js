@@ -8,12 +8,20 @@ require("dotenv").config();
 
 const app = express();
 app.set("trust proxy", 1);
+
 const server = http.createServer(app);
 const PORT = process.env.PORT || 4000;
 
+// ✅ SAFE ORIGINS (avoids undefined error)
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  "http://localhost:3000"
+].filter(Boolean);
+
+// SOCKET.IO
 const io = new Server(server, {
   cors: {
-    origin: [process.env.CLIENT_URL, "http://localhost:3000"],
+    origin: allowedOrigins,
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
     credentials: true,
   },
@@ -21,14 +29,16 @@ const io = new Server(server, {
 
 app.set("io", io);
 
+// MIDDLEWARE
 app.use(express.json());
 app.use(cors({
-  origin: [process.env.CLIENT_URL, "http://localhost:3000"],
+  origin: allowedOrigins,
   credentials: true,
 }));
+
 app.use("/assets", express.static(path.join(__dirname, "public/assets")));
 
-// Routes
+// ROUTES
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/user", require("./routes/userRoutes"));
 app.use("/api/posts", require("./routes/postRoutes"));
@@ -39,7 +49,7 @@ app.use("/api/notifications", require("./routes/notificationRoutes"));
 app.use("/api/search", require("./routes/searchRoutes"));
 app.use("/api/analytics", require("./routes/analyticsRoutes"));
 
-// Socket.io
+// SOCKET LOGIC
 let onlineUsers = [];
 
 io.on("connection", (socket) => {
@@ -47,9 +57,11 @@ io.on("connection", (socket) => {
 
   socket.on("setup", (userData) => {
     socket.join(userData._id);
+
     if (!onlineUsers.some((u) => u.userId === userData._id)) {
       onlineUsers.push({ userId: userData._id, socketId: socket.id });
     }
+
     io.emit("get-users", onlineUsers);
     socket.emit("connected");
   });
@@ -63,13 +75,12 @@ io.on("connection", (socket) => {
   socket.on("stop typing", (room) => socket.in(room).emit("stop typing"));
 
   socket.on("new message", (newMessageRecieved) => {
-    var chat = newMessageRecieved.chat;
+    const chat = newMessageRecieved.chat;
 
     if (!chat.users) return console.log("chat.users not defined");
 
     chat.users.forEach((user) => {
       if (String(user._id) === String(newMessageRecieved.sender._id)) return;
-
       socket.in(user._id).emit("message received", newMessageRecieved);
     });
   });
@@ -81,31 +92,31 @@ io.on("connection", (socket) => {
   });
 });
 
-// Test route
+// TEST ROUTE
 app.get("/", (req, res) => {
   res.send("Backend working 🚀");
 });
 
-// MongoDB connection
+// MONGODB
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     const Post = require("./models/Post");
 
     console.log("\x1b[32m%s\x1b[0m", "MongoDB connected");
+
     server.listen(PORT, () => {
       console.log("\x1b[32m%s\x1b[0m", `Server running on port ${PORT}`);
     });
 
-    // CHECK FOR SCHEDULED POSTS EVERY 30 SECONDS
+    // SCHEDULED POSTS CHECK
     setInterval(async () => {
       try {
         const now = new Date();
-        // console.log("Checking for scheduled posts at:", now);
 
-        // DEBUG: Check how many scheduled posts exist in total
         const totalScheduled = await Post.countDocuments({ status: "scheduled" });
-        if (totalScheduled > 0) console.log(`Total scheduled posts in DB: ${totalScheduled}, Time: ${now}`);
+        if (totalScheduled > 0)
+          console.log(`Total scheduled posts in DB: ${totalScheduled}, Time: ${now}`);
 
         const postsToPublish = await Post.find({
           status: "scheduled",
@@ -114,12 +125,12 @@ mongoose
 
         if (postsToPublish.length > 0) {
           console.log(`Found ${postsToPublish.length} posts to publish.`);
+
           for (const post of postsToPublish) {
             post.status = "published";
-            post.scheduledAt = undefined; // Clear schedule
+            post.scheduledAt = undefined;
             await post.save();
 
-            // Notify clients
             io.emit("new-post", post);
             console.log(`Published post ${post._id}`);
           }
@@ -127,7 +138,7 @@ mongoose
       } catch (err) {
         console.error("Error checking scheduled posts:", err);
       }
-    }, 5000); // Check every 5 seconds for debugging (was 30000)
+    }, 30000); // back to 30 seconds
   })
   .catch((err) => {
     console.error("\x1b[31m%s\x1b[0m", "MongoDB connection failed: " + err.message);
