@@ -18,7 +18,7 @@ const UserListItem = ({ user, handleFunction }) => {
             onMouseLeave={(e) => e.currentTarget.style.background = "#E8E8E8"}
         >
             <img
-                src={user.picturePath || "https://icon-library.com/images/anonymous-avatar-icon/anonymous-avatar-icon-25.jpg"}
+                src={user.profilePicture || "https://cdn-icons-png.flaticon.com/512/149/149071.png"}
                 alt={user.name}
                 style={{
                     marginRight: "10px",

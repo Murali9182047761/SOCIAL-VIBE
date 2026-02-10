@@ -24,7 +24,7 @@ const createPost = async (req, res) => {
 
         // Handle multiple files
         if (req.files && req.files.length > 0) {
-            picturePaths = req.files.map(file => `${process.env.SERVER_URL || "http://localhost:4000"}/assets/${file.filename}`);
+            picturePaths = req.files.map(file => file.path);
             // Use the first image as the primary picturePath for backward compatibility
             picturePath = picturePaths[0];
         }
@@ -45,6 +45,23 @@ const createPost = async (req, res) => {
         }
 
         const user = await User.findById(userId);
+
+        // EXTRACTION of hashtags and mentions
+        const tags = description.match(/#\w+/g) || [];
+        const mentions = description.match(/@\w+/g) || [];
+
+        // Collaborators handling
+        let collaborators = [];
+        if (req.body.collaborators) {
+            try {
+                collaborators = typeof req.body.collaborators === 'string'
+                    ? JSON.parse(req.body.collaborators)
+                    : req.body.collaborators;
+            } catch (e) {
+                console.error("Error parsing collaborators", e);
+            }
+        }
+
         const newPost = new Post({
             userId,
             firstName: user.name,
@@ -60,7 +77,10 @@ const createPost = async (req, res) => {
             status: status || "published",
             scheduledAt: scheduledAt || null,
             pollOptions: formattedPollOptions,
-            sentiment: sentiment
+            sentiment: sentiment,
+            tags: tags.map(t => t.substring(1)), // remove #
+            mentions: mentions.map(m => m.substring(1)), // remove @
+            collaborators: collaborators
         });
         await newPost.save();
 
@@ -204,6 +224,14 @@ const getFeedPosts = async (req, res) => {
                 { $skip: skip },
                 { $limit: limitNum }
             ]);
+
+        } else if (type === "archived") {
+            const filter = { userId: userId, status: "archived" };
+            totalPosts = await Post.countDocuments(filter);
+            posts = await Post.find(filter)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limitNum);
 
         } else {
             // Default: Latest posts (Global Feed - only Public)
@@ -573,6 +601,30 @@ const archivePost = async (req, res) => {
     }
 };
 
+const savePost = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { userId } = req.body;
+        const user = await User.findById(userId);
+        const post = await Post.findById(id);
+
+        if (!user) return res.status(404).json({ message: "User not found" });
+        if (!post) return res.status(404).json({ message: "Post not found" });
+
+        const isSaved = user.savedPosts.includes(id);
+        if (isSaved) {
+            user.savedPosts = user.savedPosts.filter((postId) => postId !== id);
+        } else {
+            user.savedPosts.push(id);
+        }
+        await user.save();
+
+        res.status(200).json(user.savedPosts);
+    } catch (err) {
+        res.status(404).json({ message: err.message });
+    }
+};
+
 module.exports = {
     createPost,
     getFeedPosts,
@@ -585,5 +637,6 @@ module.exports = {
     votePoll,
     deleteComment,
     editComment,
-    archivePost
+    archivePost,
+    savePost
 };

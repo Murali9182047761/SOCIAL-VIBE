@@ -1,20 +1,22 @@
 const multer = require("multer");
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+require("dotenv").config();
 
-const fs = require("fs");
-const path = require("path");
+// Configure Cloudinary
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const uploadPath = path.join(__dirname, "../public/assets");
-        if (!fs.existsSync(uploadPath)) {
-            fs.mkdirSync(uploadPath, { recursive: true });
-        }
-        cb(null, uploadPath);
-    },
-    filename: function (req, file, cb) {
-        // prepend a timestamp to the original name to avoid collisions
-        const uniqueName = `${Date.now()}-${file.originalname}`;
-        cb(null, uniqueName);
+// Set up Cloudinary storage for Multer
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: "Mvsmedia", // Name of the folder in Cloudinary
+        resource_type: "auto", // Automatically detect image or video
+        allowed_formats: ["jpg", "jpeg", "png", "webp", "mp4", "mpeg", "mov"],
     },
 });
 

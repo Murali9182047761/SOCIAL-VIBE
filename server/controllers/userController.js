@@ -237,7 +237,16 @@ exports.getFollowRequests = async (req, res) => {
 
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select("-password");
+    const keyword = req.query.search
+      ? {
+        $or: [
+          { name: { $regex: req.query.search, $options: "i" } },
+          { email: { $regex: req.query.search, $options: "i" } },
+        ],
+      }
+      : {};
+
+    const users = await User.find(keyword).find({ _id: { $ne: req.user.id } }).select("-password");
     res.status(200).json(users);
   } catch (err) {
     res.status(404).json({ message: err.message });
@@ -252,10 +261,10 @@ exports.updateProfile = async (req, res) => {
 
     if (req.files) {
       if (req.files.picture) {
-        profilePicture = `${process.env.SERVER_URL || "http://localhost:4000"}/assets/${req.files.picture[0].filename}`;
+        profilePicture = req.files.picture[0].path;
       }
       if (req.files.cover) {
-        coverPicture = `${process.env.SERVER_URL || "http://localhost:4000"}/assets/${req.files.cover[0].filename}`;
+        coverPicture = req.files.cover[0].path;
       }
     }
 

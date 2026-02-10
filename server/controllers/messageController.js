@@ -5,8 +5,11 @@ const Chat = require("../models/Chat");
 // Get all messages for a specific chat
 exports.allMessages = async (req, res) => {
     try {
-        const messages = await Message.find({ chat: req.params.chatId })
-            .populate("sender", "name picturePath email")
+        const messages = await Message.find({
+            chat: req.params.chatId,
+            deletedFor: { $ne: req.user.id } // Filter out messages deleted for this user
+        })
+            .populate("sender", "name profilePicture email")
             .populate("chat");
         res.json(messages);
     } catch (error) {
@@ -35,11 +38,12 @@ exports.sendMessage = async (req, res) => {
         let type = 'file';
         if (file.mimetype.startsWith('image/')) type = 'image';
         else if (file.mimetype.startsWith('video/')) type = 'video';
+        else if (file.mimetype.startsWith('audio/')) type = 'audio';
 
         const protocol = req.protocol;
         const host = req.get("host");
         media = {
-            url: `${protocol}://${host}/assets/${file.filename}`,
+            url: file.path,
             type: type
         };
     }
@@ -59,11 +63,11 @@ exports.sendMessage = async (req, res) => {
     try {
         var message = await Message.create(newMessage);
 
-        message = await message.populate("sender", "name picturePath");
+        message = await message.populate("sender", "name profilePicture");
         message = await message.populate("chat");
         message = await User.populate(message, {
             path: "chat.users",
-            select: "name picturePath email",
+            select: "name profilePicture email",
         });
 
         await Chat.findByIdAndUpdate(req.body.chatId, { latestMessage: message });
@@ -83,26 +87,44 @@ exports.sendMessage = async (req, res) => {
     }
 };
 
-// Delete message
-exports.deleteMessage = async (req, res) => {
+// Delete for everyone (only sender can do this)
+exports.deleteMessageForEveryone = async (req, res) => {
     try {
         const message = await Message.findById(req.params.id);
 
         if (!message) {
-            res.status(404);
-            throw new Error("Message not found");
+            return res.status(404).json({ message: "Message not found" });
         }
 
-        // Ensure user is authorized (sender or maybe admin)
-        // Note: req.user is set by authMiddleware
         if (message.sender.toString() !== req.user.id) {
-            res.status(401);
-            throw new Error("You can't delete this message");
+            return res.status(401).json({ message: "Only sender can delete for everyone" });
         }
 
         await Message.findByIdAndDelete(req.params.id);
 
-        res.json({ message: "Message removed" });
+        res.json({ message: "Message deleted for everyone" });
+    } catch (error) {
+        res.status(400);
+        throw new Error(error.message);
+    }
+};
+
+// Delete for me (any member can do this)
+exports.deleteMessageForMe = async (req, res) => {
+    try {
+        const message = await Message.findById(req.params.id);
+
+        if (!message) {
+            return res.status(404).json({ message: "Message not found" });
+        }
+
+        // Add user to deletedFor array if not already there
+        if (!message.deletedFor.includes(req.user.id)) {
+            message.deletedFor.push(req.user.id);
+            await message.save();
+        }
+
+        res.json({ message: "Message deleted for me" });
     } catch (error) {
         res.status(400);
         throw new Error(error.message);

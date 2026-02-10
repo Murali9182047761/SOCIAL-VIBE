@@ -59,7 +59,7 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use("/assets", express.static(path.join(__dirname, "public/assets")));
+// app.use("/assets", express.static(path.join(__dirname, "public/assets")));
 
 // ===== ROUTES =====
 app.use("/api/auth", require("./routes/authRoutes"));
@@ -108,6 +108,11 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on("delete message", (data) => {
+    const { messageId, chatId } = data;
+    socket.in(chatId).emit("message deleted", messageId);
+  });
+
   socket.on("disconnect", () => {
     onlineUsers = onlineUsers.filter((u) => u.socketId !== socket.id);
     io.emit("get-users", onlineUsers);
@@ -123,7 +128,6 @@ app.get("/", (req, res) => {
 // ===== START SERVER =====
 server.listen(PORT, () => {
   console.log("\x1b[32m%s\x1b[0m", `🚀 Server running on port ${PORT}`);
-  console.log("Allowed Origins:", allowedOrigins);
 });
 
 // ===== MONGODB =====

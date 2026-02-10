@@ -138,7 +138,7 @@ const MyChats = ({ fetchAgain }) => {
 
     const getSenderPic = (loggedUser, users) => {
         if (!loggedUser || !users || users.length < 2) return "";
-        return users[0]._id === loggedUser._id ? users[1].picturePath : users[0].picturePath;
+        return users[0]._id === loggedUser._id ? users[1].profilePicture : users[0].profilePicture;
     }
 
     return (
@@ -248,7 +248,7 @@ const MyChats = ({ fetchAgain }) => {
                         <div style={{ maxHeight: "150px", overflowY: "auto" }}>
                             {groupSearchResults?.slice(0, 4).map(user => (
                                 <div key={user._id} onClick={() => handleAddUserToGroup(user)} style={{ padding: "5px", cursor: "pointer", borderBottom: "1px solid #eee" }}>
-                                    <img src={user.picturePath} alt="" style={{ width: "20px", height: "20px", borderRadius: "50%", verticalAlign: "middle", marginRight: "5px" }} />
+                                    <img src={user.profilePicture} alt="" style={{ width: "20px", height: "20px", borderRadius: "50%", verticalAlign: "middle", marginRight: "5px" }} />
                                     {user.name}
                                 </div>
                             ))}

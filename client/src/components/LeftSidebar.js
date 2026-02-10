@@ -4,7 +4,7 @@ import {
   AiOutlineBell,
   AiOutlineSetting,
 } from "react-icons/ai";
-import { BsBookmarkFill, BsFilePost } from "react-icons/bs";
+import { BsBookmarkFill, BsFilePost, BsArchiveFill } from "react-icons/bs";
 import { Link, useLocation } from "react-router-dom";
 import "./LeftSidebar.css";
 
@@ -17,6 +17,7 @@ function LeftSidebar() {
     { icon: <BsBookmarkFill />, label: "Saved", link: "/saved", color: "#e63946" },
     { icon: <AiOutlineBell />, label: "Follow Requests", link: "/notifications", color: "#a8dadc" }, // Using notifications for requests
     { icon: <BsFilePost />, label: "Manage Posts", link: "/manage-posts", color: "#457b9d" },
+    { icon: <BsArchiveFill />, label: "Archived", link: "/archived", color: "#546e7a" },
     { icon: <AiOutlineSetting />, label: "Settings", link: "/settings", color: "#1d3557" },
   ];
 

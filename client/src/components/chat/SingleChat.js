@@ -6,6 +6,7 @@ import "./SingleChat.css";
 import io from "socket.io-client";
 import { AiOutlineSend, AiOutlinePaperClip, AiFillDelete, AiOutlineInfoCircle } from "react-icons/ai";
 import { BsEmojiSmile } from "react-icons/bs";
+import { MdMic, MdStop } from "react-icons/md";
 import EmojiPicker from "emoji-picker-react";
 
 const ENDPOINT = SERVER_URL;
@@ -22,6 +23,13 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     const [selectedFile, setSelectedFile] = useState(null);
     const [mediaPreview, setMediaPreview] = useState(null);
     const [showGroupOptions, setShowGroupOptions] = useState(false); // Dropdown toggle
+    const [deleteMenu, setDeleteMenu] = useState(null); // { messageId: string, isSender: boolean }
+    const [isRecording, setIsRecording] = useState(false);
+    const [recordingTime, setRecordingTime] = useState(0);
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
+    const timerRef = useRef(null);
+
     const { user, selectedChat, setSelectedChat, notification, setNotification, setOnlineUsers } = ChatState();
 
     const messagesEndRef = useRef(null);
@@ -41,6 +49,10 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
             setOnlineUsers(users);
         });
 
+        socket.on("message deleted", (messageId) => {
+            setMessages(prev => prev.filter(m => m._id !== messageId));
+        });
+
         return () => {
             socket.disconnect();
         }
@@ -53,7 +65,9 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     }, [selectedChat]); // eslint-disable-line
 
     useEffect(() => {
-        socket.on("message received", (newMessageRecieved) => {
+        if (!socket) return;
+
+        const handleMessageReceived = (newMessageRecieved) => {
             if (
                 !selectedChatCompare ||
                 selectedChatCompare._id !== newMessageRecieved.chat._id
@@ -63,17 +77,36 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                     setFetchAgain(!fetchAgain);
                 }
             } else {
-                if (!messages.some(m => m._id === newMessageRecieved._id)) {
-                    setMessages([...messages, newMessageRecieved]);
-                    scrollToBottom();
-                }
+                setMessages(prev => {
+                    if (prev.some(m => m._id === newMessageRecieved._id)) return prev;
+                    return [...prev, newMessageRecieved];
+                });
+                scrollToBottom();
             }
-        });
+        };
+
+        const handleMessageDeleted = (messageId) => {
+            console.log("Socket: Message deleted", messageId);
+            setMessages(prev => prev.filter(m => m._id !== messageId));
+        };
+
+        socket.on("message received", handleMessageReceived);
+        socket.on("message deleted", handleMessageDeleted);
+
+        const handleWindowClick = () => {
+            setDeleteMenu(null);
+            setShowEmojiPicker(false);
+            setShowGroupOptions(false);
+        };
+
+        window.addEventListener("click", handleWindowClick);
 
         return () => {
-            socket.off("message received");
+            socket.off("message received", handleMessageReceived);
+            socket.off("message deleted", handleMessageDeleted);
+            window.removeEventListener("click", handleWindowClick);
         }
-    }); // eslint-disable-line
+    }, [socketConnected, fetchAgain, notification, setFetchAgain]); // eslint-disable-line
 
     const fetchMessages = async () => {
         if (!selectedChat) return;
@@ -198,16 +231,32 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         }, timerLength);
     };
 
-    const handleDeleteMessage = async (messageId) => {
-        if (!window.confirm("Delete this message?")) return;
+    const handleDeleteForMe = async (messageId) => {
         try {
+            console.log("Deleting for me:", messageId);
             const config = {
                 headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
             };
-            await axios.delete(`${API_URL}/messages/${messageId}`, config);
-            setMessages(messages.filter((m) => m._id !== messageId));
+            await axios.delete(`${API_URL}/messages/me/${messageId}`, config);
+            setMessages(prev => prev.filter((m) => m._id !== messageId));
+            setDeleteMenu(null);
         } catch (error) {
-            console.log("Failed to delete message", error);
+            console.error("Failed to delete message for me", error);
+        }
+    }
+
+    const handleDeleteForEveryone = async (messageId) => {
+        try {
+            console.log("Deleting for everyone:", messageId);
+            const config = {
+                headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+            };
+            await axios.delete(`${API_URL}/messages/everyone/${messageId}`, config);
+            setMessages(prev => prev.filter((m) => m._id !== messageId));
+            setDeleteMenu(null);
+            socket.emit("delete message", { messageId, chatId: selectedChat._id });
+        } catch (error) {
+            console.error("Failed to delete message for everyone", error);
         }
     }
 
@@ -270,6 +319,56 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     const removeSelectedFile = () => {
         setSelectedFile(null);
         setMediaPreview(null);
+    };
+
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mediaRecorder = new MediaRecorder(stream);
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                const audioFile = new File([audioBlob], "voice-message.webm", { type: 'audio/webm' });
+
+                setSelectedFile(audioFile);
+                setMediaPreview(URL.createObjectURL(audioBlob));
+
+                stream.getTracks().forEach(track => track.stop());
+                setRecordingTime(0);
+            };
+
+            mediaRecorder.start();
+            setIsRecording(true);
+            timerRef.current = setInterval(() => {
+                setRecordingTime(prev => prev + 1);
+            }, 1000);
+        } catch (error) {
+            console.error("Error accessing microphone:", error);
+            alert("Could not access microphone.");
+        }
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorderRef.current && isRecording) {
+            mediaRecorderRef.current.stop();
+            setIsRecording(false);
+            clearInterval(timerRef.current);
+        }
+    };
+
+
+    const formatTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
     };
 
     const getSender = (loggedUser, users) => {
@@ -356,20 +455,26 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                             <AiOutlineInfoCircle
                                 size={24}
                                 style={{ cursor: "pointer", color: "var(--text-primary)" }}
-                                onClick={() => setShowGroupOptions(!showGroupOptions)}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowGroupOptions(!showGroupOptions);
+                                }}
                             />
                             {showGroupOptions && (
-                                <div style={{
-                                    position: "absolute",
-                                    right: 0,
-                                    top: "30px",
-                                    background: "white",
-                                    boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
-                                    borderRadius: "5px",
-                                    zIndex: 10,
-                                    minWidth: "150px",
-                                    overflow: "hidden"
-                                }}>
+                                <div
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                        position: "absolute",
+                                        right: 0,
+                                        top: "40px",
+                                        background: "white",
+                                        boxShadow: "0 4px 15px rgba(0,0,0,0.15)",
+                                        borderRadius: "8px",
+                                        zIndex: 100,
+                                        minWidth: "180px",
+                                        overflow: "hidden",
+                                        border: "1px solid #eaeaea"
+                                    }}>
                                     {selectedChat.isGroupChat && (
                                         <>
                                             {selectedChat.groupAdmin._id === user._id && (
@@ -433,6 +538,8 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                                                     <img src={m.media.url} alt="media" style={{ maxWidth: "200px", borderRadius: "8px" }} />
                                                 ) : m.media.type === 'video' ? (
                                                     <video src={m.media.url} controls style={{ maxWidth: "200px", borderRadius: "8px" }} />
+                                                ) : m.media.type === 'audio' ? (
+                                                    <audio src={m.media.url} controls style={{ maxWidth: "250px" }} />
                                                 ) : (
                                                     <a href={m.media.url} target="_blank" rel="noreferrer">📎 Attached File</a>
                                                 )}
@@ -446,13 +553,57 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                                                 {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 {m.sender._id === user._id && <span style={{ marginLeft: "5px" }}>✓✓</span>}
                                             </div>
-                                            {m.sender._id === user._id && (
-                                                <AiFillDelete
-                                                    size={14}
-                                                    style={{ cursor: "pointer", marginLeft: "10px", color: "#e74c3c" }}
-                                                    onClick={() => handleDeleteMessage(m._id)}
-                                                    title="Delete Message"
-                                                />
+                                            {(m.sender._id === user._id || !selectedChat.isGroupChat) && (
+                                                <div style={{ position: "relative" }}>
+                                                    <AiFillDelete
+                                                        size={14}
+                                                        style={{ cursor: "pointer", marginLeft: "10px", color: "#e74c3c" }}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setDeleteMenu(deleteMenu?.messageId === m._id ? null : { messageId: m._id, isSender: String(m.sender._id) === String(user._id) });
+                                                        }}
+                                                        title="Delete Message"
+                                                    />
+                                                    {deleteMenu?.messageId === m._id && (
+                                                        <div className="delete-popup"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            style={{
+                                                                position: "absolute",
+                                                                bottom: "20px",
+                                                                right: "0",
+                                                                background: "white",
+                                                                boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
+                                                                borderRadius: "6px",
+                                                                padding: "5px 0",
+                                                                zIndex: 1000,
+                                                                minWidth: "140px",
+                                                                color: "black"
+                                                            }}>
+                                                            <div
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleDeleteForMe(m._id);
+                                                                }}
+                                                                style={{ padding: "10px 15px", cursor: "pointer", fontSize: "14px", borderBottom: "1px solid #eee" }}
+                                                                className="hover-bg"
+                                                            >
+                                                                Delete for me
+                                                            </div>
+                                                            {deleteMenu.isSender && (
+                                                                <div
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteForEveryone(m._id);
+                                                                    }}
+                                                                    style={{ padding: "10px 15px", cursor: "pointer", fontSize: "14px", color: "#e74c3c" }}
+                                                                    className="hover-bg"
+                                                                >
+                                                                    Delete for everyone
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
                                     </div>
@@ -465,16 +616,18 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
 
                     <div className="chat-input-container" style={{ flexDirection: "column", gap: 0, alignItems: "stretch", padding: "10px" }}>
                         {mediaPreview && (
-                            <div className="media-preview" style={{ padding: "10px", display: "flex", gap: "10px", alignItems: "center", background: "#f0f2f5", borderRadius: "8px 8px 0 0" }}>
+                            <div className="media-preview" style={{ padding: "10px", display: "flex", gap: "10px", alignItems: "center", background: "var(--background-color)", borderRadius: "8px 8px 0 0", border: "1px solid var(--border-color)", borderBottom: "none" }}>
                                 {selectedFile && selectedFile.type.startsWith("video") ? (
                                     <video src={mediaPreview} style={{ height: "60px", borderRadius: "4px" }} />
+                                ) : selectedFile && selectedFile.type.startsWith("audio") ? (
+                                    <audio src={mediaPreview} controls style={{ height: "40px" }} />
                                 ) : (
                                     <img src={mediaPreview} alt="preview" style={{ height: "60px", borderRadius: "4px", objectFit: "cover" }} />
                                 )}
                                 <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: "12px", fontWeight: "bold" }}>{selectedFile?.name}</div>
+                                    <div style={{ fontSize: "12px", fontWeight: "bold", color: "var(--text-primary)" }}>{selectedFile?.name}</div>
                                 </div>
-                                <button onClick={removeSelectedFile} style={{ background: "none", border: "none", cursor: "pointer", color: "red" }}>✕</button>
+                                <button onClick={removeSelectedFile} style={{ background: "none", border: "none", cursor: "pointer", color: "#e74c3c", fontSize: "18px" }}>✕</button>
                             </div>
                         )}
 
@@ -487,7 +640,10 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                             <BsEmojiSmile
                                 size={24}
                                 style={{ cursor: "pointer", color: "#666", marginRight: "10px" }}
-                                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowEmojiPicker(!showEmojiPicker);
+                                }}
                             />
                             <input
                                 type="file"
@@ -502,15 +658,31 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                             />
                             <input
                                 className="chat-input"
-                                placeholder="Type a message..."
+                                placeholder={isRecording ? `Recording... ${formatTime(recordingTime)}` : "Type a message..."}
                                 onChange={typingHandler}
                                 onClick={() => setShowEmojiPicker(false)}
                                 value={newMessage}
                                 onKeyDown={sendMessage}
+                                disabled={isRecording}
                             />
-                            <button className="send-btn" onClick={sendMessageBtn}>
-                                <AiOutlineSend size={18} />
-                            </button>
+
+                            {isRecording ? (
+                                <button className="send-btn" onClick={stopRecording} style={{ background: "#e74c3c" }}>
+                                    <MdStop size={18} />
+                                </button>
+                            ) : (
+                                <>
+                                    {!newMessage && !selectedFile ? (
+                                        <button className="send-btn" onClick={startRecording} style={{ background: "#27ae60" }}>
+                                            <MdMic size={18} />
+                                        </button>
+                                    ) : (
+                                        <button className="send-btn" onClick={sendMessageBtn}>
+                                            <AiOutlineSend size={18} />
+                                        </button>
+                                    )}
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -539,7 +711,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                                                 onClick={() => handleAddUser(user)}
                                                 style={{ padding: "10px", borderBottom: "1px solid #eee", cursor: "pointer", display: "flex", alignItems: "center" }}
                                             >
-                                                <img src={user.picturePath || user.profilePicture || "https://cdn-icons-png.flaticon.com/512/149/149071.png"} alt="" style={{ width: "30px", height: "30px", borderRadius: "50%", marginRight: "10px", objectFit: "cover" }} />
+                                                <img src={user.profilePicture || "https://cdn-icons-png.flaticon.com/512/149/149071.png"} alt="" style={{ width: "30px", height: "30px", borderRadius: "50%", marginRight: "10px", objectFit: "cover" }} />
                                                 <div>
                                                     <div style={{ fontWeight: "bold", fontSize: "14px" }}>{user.name}</div>
                                                     <div style={{ fontSize: "12px", color: "gray" }}>{user.email}</div>

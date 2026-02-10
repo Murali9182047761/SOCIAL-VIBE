@@ -17,7 +17,7 @@ const createStory = async (req, res) => {
         const { userId } = req.body;
         let picturePath = "";
         if (req.file) {
-            picturePath = `${process.env.SERVER_URL || "http://localhost:4000"}/assets/${req.file.filename}`;
+            picturePath = req.file.path;
         } else if (req.body.picturePath) {
             picturePath = req.body.picturePath;
         }

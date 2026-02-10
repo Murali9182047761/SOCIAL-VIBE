@@ -13,6 +13,7 @@ import SearchPage from "./pages/SearchPage";
 import SavedPosts from "./pages/SavedPosts";
 import Communities from "./pages/Communities";
 import ManagePosts from "./pages/ManagePosts";
+import ArchivedPosts from "./pages/ArchivedPosts";
 import Settings from "./pages/Settings";
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -171,6 +172,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ManagePosts />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/archived"
+            element={
+              <ProtectedRoute>
+                <ArchivedPosts />
               </ProtectedRoute>
             }
           />

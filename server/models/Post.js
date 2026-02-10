@@ -54,7 +54,14 @@ const PostSchema = new mongoose.Schema(
       type: String,
       enum: ["positive", "neutral", "negative"],
       default: "neutral"
-    }
+    },
+    collaborators: [{
+      userId: String,
+      name: String,
+      profilePicture: String
+    }],
+    tags: [String],
+    mentions: [String]
   },
   { timestamps: true }
 );

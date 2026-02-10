@@ -22,7 +22,7 @@ exports.accessChat = async (req, res) => {
 
     isChat = await User.populate(isChat, {
         path: "latestMessage.sender",
-        select: "name picturePath email",
+        select: "name profilePicture email",
     });
 
     if (isChat.length > 0) {
@@ -59,7 +59,7 @@ exports.fetchChats = async (req, res) => {
             .then(async (results) => {
                 results = await User.populate(results, {
                     path: "latestMessage.sender",
-                    select: "name picturePath email",
+                    select: "name profilePicture email",
                 });
                 res.status(200).send(results);
             });

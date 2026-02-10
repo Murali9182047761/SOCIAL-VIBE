@@ -11,6 +11,11 @@ function CreatePostModal({ onClose, onPostCreated }) {
     const [isPoll, setIsPoll] = useState(false);
     const [pollOptions, setPollOptions] = useState(["", ""]);
     const [mode, setMode] = useState("media"); // "media" | "text"
+    const [collaborators, setCollaborators] = useState([]);
+    const [showCollabSearch, setShowCollabSearch] = useState(false);
+    const [collabQuery, setCollabQuery] = useState("");
+    const [collabResults, setCollabResults] = useState([]);
+    const [uploadProgress, setUploadProgress] = useState(0);
 
     const user = JSON.parse(localStorage.getItem("user"));
     const token = localStorage.getItem("token");
@@ -64,6 +69,33 @@ function CreatePostModal({ onClose, onPostCreated }) {
         }
     };
 
+    const searchCollaborators = async (q) => {
+        setCollabQuery(q);
+        if (q.length < 2) {
+            setCollabResults([]);
+            return;
+        }
+        try {
+            const res = await axios.get(`${API_URL}/user/search?query=${q}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setCollabResults(res.data.filter(u => u._id !== user._id && !collaborators.find(c => c.userId === u._id)));
+        } catch (err) {
+            console.log("Search failed", err);
+        }
+    };
+
+    const addCollaborator = (u) => {
+        setCollaborators([...collaborators, { userId: u._id, name: u.name, profilePicture: u.profilePicture }]);
+        setCollabQuery("");
+        setCollabResults([]);
+        setShowCollabSearch(false);
+    };
+
+    const removeCollaborator = (id) => {
+        setCollaborators(collaborators.filter(c => c.userId !== id));
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -93,6 +125,10 @@ function CreatePostModal({ onClose, onPostCreated }) {
             formData.append("pollOptions", JSON.stringify(formattedOptions));
         }
 
+        if (collaborators.length > 0) {
+            formData.append("collaborators", JSON.stringify(collaborators));
+        }
+
         if (!user || !user._id) {
             alert("User not logged in or invalid session. Please re-login.");
             return;
@@ -101,8 +137,13 @@ function CreatePostModal({ onClose, onPostCreated }) {
         try {
             await axios.post(`${API_URL}/posts`, formData, {
                 headers: { Authorization: `Bearer ${token}` },
+                onUploadProgress: (progressEvent) => {
+                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    setUploadProgress(percentCompleted);
+                },
             });
             setLoading(false);
+            setUploadProgress(0);
             onPostCreated();
             onClose();
         } catch (err) {
@@ -161,7 +202,51 @@ function CreatePostModal({ onClose, onPostCreated }) {
                                     >
                                         📊 {isPoll ? "Remove Poll" : "Add Poll"}
                                     </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowCollabSearch(!showCollabSearch)}
+                                        style={{ background: "none", border: "1px solid #dbdbdb", padding: "5px 10px", borderRadius: "15px", cursor: "pointer", fontSize: "12px", marginLeft: "10px", color: collaborators.length > 0 ? "#0095f6" : "black", borderColor: collaborators.length > 0 ? "#0095f6" : "#dbdbdb" }}
+                                    >
+                                        🤝 {collaborators.length > 0 ? `${collaborators.length} Collaborators` : "Add Collaborator"}
+                                    </button>
                                 </div>
+
+                                {showCollabSearch && (
+                                    <div className="collab-search-section" style={{ marginBottom: "10px" }}>
+                                        <input
+                                            type="text"
+                                            placeholder="Search users..."
+                                            value={collabQuery}
+                                            onChange={(e) => searchCollaborators(e.target.value)}
+                                            style={{ width: "100%", padding: "8px", borderRadius: "8px", border: "1px solid #dbdbdb" }}
+                                        />
+                                        {collabResults.length > 0 && (
+                                            <div className="search-results-dropdown" style={{ background: "white", boxShadow: "0 2px 10px rgba(0,0,0,0.1)", borderRadius: "8px", marginTop: "5px", maxHeight: "150px", overflowY: "auto" }}>
+                                                {collabResults.map(u => (
+                                                    <div
+                                                        key={u._id}
+                                                        onClick={() => addCollaborator(u)}
+                                                        style={{ padding: "8px", display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", borderBottom: "1px solid #f0f0f0" }}
+                                                    >
+                                                        <img src={u.profilePicture || "https://cdn-icons-png.flaticon.com/512/149/149071.png"} alt="" style={{ width: "24px", height: "24px", borderRadius: "50%" }} />
+                                                        <span>{u.name}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {collaborators.length > 0 && (
+                                    <div className="selected-collabs" style={{ display: "flex", gap: "5px", flexWrap: "wrap", marginBottom: "10px" }}>
+                                        {collaborators.map(c => (
+                                            <div key={c.userId} style={{ background: "#f0f2f5", padding: "4px 8px", borderRadius: "12px", fontSize: "12px", display: "flex", alignItems: "center", gap: "5px" }}>
+                                                <span>{c.name}</span>
+                                                <span onClick={() => removeCollaborator(c.userId)} style={{ cursor: "pointer", fontWeight: "bold" }}>×</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
 
                                 {isPoll && (
                                     <div className="poll-creation-section" style={{ overflowY: "auto", maxHeight: "150px", marginBottom: "15px" }}>
@@ -186,8 +271,17 @@ function CreatePostModal({ onClose, onPostCreated }) {
                                 )}
 
                                 <div className="create-actions">
-                                    <button onClick={() => { setPreview(null); setMode("media"); setImage(null); }} className="back-btn">Back</button>
-                                    <button onClick={handleSubmit} className="share-btn" disabled={loading}>{loading ? "Sharing..." : "Share"}</button>
+                                    <button onClick={() => { setPreview(null); setMode("media"); setImage(null); setUploadProgress(0); }} className="back-btn">Back</button>
+                                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flex: 1 }}>
+                                        {loading && (
+                                            <div style={{ width: "100%", height: "4px", background: "#efefef", borderRadius: "2px", marginBottom: "8px", overflow: "hidden" }}>
+                                                <div style={{ width: `${uploadProgress}%`, height: "100%", background: "#0095f6", transition: "width 0.3s ease" }}></div>
+                                            </div>
+                                        )}
+                                        <button onClick={handleSubmit} className="share-btn" disabled={loading}>
+                                            {loading ? (uploadProgress < 100 ? `Uploading ${uploadProgress}%` : "Processing...") : "Share"}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -25,6 +25,7 @@ const Feed = ({ initialType = "latest" }) => {
   const [newStoryImage, setNewStoryImage] = useState(null);
   const [showStoryInput, setShowStoryInput] = useState(false);
   const [selectedStory, setSelectedStory] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   // Feed & Infinite Scroll State
   const [feedType, setFeedType] = useState(initialType); // latest, personalized, trending, saved
@@ -222,6 +223,10 @@ const Feed = ({ initialType = "latest" }) => {
           Authorization: `Bearer ${token}`,
           "Content-Type": "multipart/form-data",
         },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percentCompleted);
+        },
       });
       // Reset form
       setDescription("");
@@ -241,6 +246,7 @@ const Feed = ({ initialType = "latest" }) => {
       alert(`Failed to create post. Error: ${errorMsg}`);
     } finally {
       setIsSubmitting(false);
+      setUploadProgress(0);
     }
   };
 
@@ -272,7 +278,13 @@ const Feed = ({ initialType = "latest" }) => {
       await axios.post(
         `${API_URL}/stories`,
         formData,
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(percentCompleted);
+          },
+        }
       );
       setNewStoryImage(null);
       setShowStoryInput(false);
@@ -297,7 +309,7 @@ const Feed = ({ initialType = "latest" }) => {
   };
 
   // Conditionally render
-  const hideHeader = feedType === 'saved' || feedType === 'my_posts';
+  const hideHeader = feedType === 'saved' || feedType === 'my_posts' || feedType === 'archived';
 
   return (
     <div className="feed-container">
@@ -415,8 +427,15 @@ const Feed = ({ initialType = "latest" }) => {
               onChange={(e) => setNewStoryImage(e.target.files[0])}
               style={{ fontSize: "13px" }}
             />
-            <button onClick={handleStorySubmit} className="btn-primary" style={{ padding: "8px 16px", borderRadius: "8px" }}>Upload</button>
+            <button onClick={handleStorySubmit} className="btn-primary" style={{ padding: "8px 16px", borderRadius: "8px" }} disabled={isSubmitting}>
+              {isSubmitting ? (uploadProgress < 100 ? `Uploading ${uploadProgress}%` : "Processing...") : "Upload"}
+            </button>
           </div>
+          {isSubmitting && (
+            <div style={{ width: "100%", height: "4px", background: "#efefef", borderRadius: "2px", marginTop: "10px", overflow: "hidden" }}>
+              <div style={{ width: `${uploadProgress}%`, height: "100%", background: "#0095f6", transition: "width 0.3s ease" }}></div>
+            </div>
+          )}
         </div>
       )}
 
@@ -544,12 +563,30 @@ const Feed = ({ initialType = "latest" }) => {
                 onClick={() => handlePostSubmit(isScheduled ? "scheduled" : "published")}
                 disabled={(!description && images.length === 0) || isSubmitting}
                 className="btn-primary"
-                style={{ padding: "6px 20px", borderRadius: "8px", fontSize: "14px", opacity: (!description && images.length === 0) ? 0.6 : 1 }}
+                style={{
+                  padding: "6px 20px",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  opacity: (!description && images.length === 0) ? 0.6 : 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center"
+                }}
               >
-                {isScheduled ? "Schedule" : "Post"}
+                <span>{isScheduled ? "Schedule" : "Post"}</span>
+                {isSubmitting && (
+                  <span style={{ fontSize: "10px" }}>
+                    {uploadProgress < 100 ? `${uploadProgress}%` : "Processing..."}
+                  </span>
+                )}
               </button>
             </div>
           </div>
+          {isSubmitting && (
+            <div style={{ width: "100%", height: "4px", background: "#efefef", borderRadius: "2px", marginTop: "10px", overflow: "hidden" }}>
+              <div style={{ width: `${uploadProgress}%`, height: "100%", background: "#0095f6", transition: "width 0.3s ease" }}></div>
+            </div>
+          )}
         </div>
       )}
 
@@ -626,6 +663,7 @@ const Feed = ({ initialType = "latest" }) => {
       {/* Saved Title */}
       {feedType === 'saved' && <h3 style={{ margin: "10px 0 20px", color: "var(--text-primary)" }}>Saved Posts</h3>}
       {feedType === 'my_posts' && <h3 style={{ margin: "10px 0 20px", color: "var(--text-primary)" }}>Manage My Posts</h3>}
+      {feedType === 'archived' && <h3 style={{ margin: "10px 0 20px", color: "var(--text-primary)" }}>Archived Posts</h3>}
 
       {/* Posts Infinite Scroll */}
       <div className="posts-container" id="scrollableDiv">

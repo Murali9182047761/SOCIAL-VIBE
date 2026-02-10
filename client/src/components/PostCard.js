@@ -28,6 +28,42 @@ const formatTime = (dateString) => {
     return date.toLocaleDateString();
 };
 
+const renderText = (text, navigate) => {
+    if (!text) return null;
+    const parts = text.split(/(\s+)/);
+    return parts.map((part, i) => {
+        if (part.startsWith("#")) {
+            return (
+                <span
+                    key={i}
+                    style={{ color: "#0095f6", cursor: "pointer", fontWeight: "600" }}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        // navigate(`/search?query=${part.substring(1)}`);
+                    }}
+                >
+                    {part}
+                </span>
+            );
+        }
+        if (part.startsWith("@")) {
+            return (
+                <span
+                    key={i}
+                    style={{ color: "#0095f6", cursor: "pointer", fontWeight: "600" }}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        // ideally navigate to profile if we know the ID, or just search
+                    }}
+                >
+                    {part}
+                </span>
+            );
+        }
+        return part;
+    });
+};
+
 const PostCard = ({ post, user, refreshPosts }) => {
     const navigate = useNavigate();
     const [userReaction, setUserReaction] = useState(post.likes ? post.likes[user._id] : null);
@@ -308,7 +344,15 @@ const PostCard = ({ post, user, refreshPosts }) => {
                         className="post-avatar"
                     />
                     <div className="post-user-details">
-                        <h4>{post.firstName} {post.lastName} {isPinned && "📌"}</h4>
+                        <div style={{ display: "flex", alignItems: "center", gap: "5px", flexWrap: "wrap" }}>
+                            <h4>{post.firstName} {post.lastName}</h4>
+                            {post.collaborators && post.collaborators.length > 0 && (
+                                <span style={{ fontSize: "0.85rem", color: "#666" }}>
+                                    with <b>{post.collaborators.map(c => c.name).join(", ")}</b>
+                                </span>
+                            )}
+                            {isPinned && "📌"}
+                        </div>
                         <span className="post-time">
                             {formatTime(post.createdAt)} • {post.status !== 'published' ? <span style={{ color: 'orange' }}>{post.status}</span> : "Public"}
                         </span>
@@ -370,7 +414,7 @@ const PostCard = ({ post, user, refreshPosts }) => {
                         </div>
                     </div>
                 ) : (
-                    <p className="post-description">{post.description}</p>
+                    <p className="post-description">{renderText(post.description, navigate)}</p>
                 )}
 
                 {/* Poll Section */}
@@ -522,7 +566,7 @@ const PostCard = ({ post, user, refreshPosts }) => {
                                     <div>
                                         <div className="comment-content">
                                             <span className="comment-author">{comment.username}</span>
-                                            <span className="comment-text">{comment.text}</span>
+                                            <span className="comment-text">{renderText(comment.text, navigate)}</span>
                                         </div>
                                         <div className="comment-actions">
                                             <span className="comment-action" onClick={() => {
@@ -558,7 +602,7 @@ const PostCard = ({ post, user, refreshPosts }) => {
                                                 <div>
                                                     <div className="comment-content">
                                                         <span className="comment-author">{reply.username}</span>
-                                                        <span className="comment-text">{reply.text}</span>
+                                                        <span className="comment-text">{renderText(reply.text, navigate)}</span>
                                                     </div>
                                                     <div style={{ display: 'flex', gap: '10px', fontSize: '0.75rem', color: '#666', marginTop: '2px', marginLeft: '5px' }}>
                                                         <span>{formatTime(reply.createdAt || new Date())}</span>

@@ -24,8 +24,14 @@ const MessageSchema = new mongoose.Schema(
         ],
         media: {
             url: { type: String },
-            type: { type: String }, // 'image', 'video', 'file'
-        }
+            type: { type: String }, // 'image', 'video', 'file', 'audio'
+        },
+        deletedFor: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "User",
+            },
+        ],
     },
     { timestamps: true }
 );
