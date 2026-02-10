@@ -153,13 +153,10 @@ textarea {
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
-/* Response Utilities */
-@media (max-width: 768px) {
-  .navbar-search {
-    display: none !important;
-  }
-
-  .navbar-container {
-    padding: 10px 15px !important;
+/* Navigation Padding Fix for Mobile */
+@media (max-width: 850px) {
+  body {
+    padding-bottom: 70px;
+    /* Space for bottom nav */
   }
 }

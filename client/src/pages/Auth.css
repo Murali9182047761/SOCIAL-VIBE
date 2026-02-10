@@ -166,9 +166,15 @@
 }
 
 /* RESPONSIVE */
-@media (max-width: 500px) {
+@media (max-width: 600px) {
+  .auth-row {
+    flex-direction: column;
+    gap: 0;
+  }
+
   .auth-card {
     padding: 30px 20px;
+    max-width: 100%;
   }
 
   .auth-title {

@@ -1,10 +1,15 @@
-/* Feed Container */
 .feed-container {
   flex: 2;
   max-width: 600px;
-  /* narrowed for instagram feel */
   margin: 0 auto;
   padding-bottom: 50px;
+}
+
+@media (max-width: 768px) {
+  .feed-container {
+    max-width: 100%;
+    padding: 10px;
+  }
 }
 
 /* Stories */
