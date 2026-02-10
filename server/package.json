@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "fix-port": "powershell -Command \"$p = Get-NetTCPConnection -LocalPort 4000 -ErrorAction SilentlyContinue; if($p) { Stop-Process -Id $p.OwningProcess -Force -ErrorAction SilentlyContinue }\"",
     "start": "node index.js",
     "dev": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
