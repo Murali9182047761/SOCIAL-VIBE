@@ -101,7 +101,7 @@ exports.login = async (req, res) => {
 
     const token = jwt.sign(
       { id: user._id },
-      "secretkey",
+      process.env.JWT_SECRET || "secretkey",
       { expiresIn: "1d" }
     );
 
@@ -242,7 +242,7 @@ exports.googleLogin = async (req, res) => {
 
     const token = jwt.sign(
       { id: user._id },
-      "secretkey",
+      process.env.JWT_SECRET || "secretkey",
       { expiresIn: "1d" }
     );
 
@@ -308,7 +308,8 @@ exports.forgotPassword = async (req, res) => {
     await user.save();
 
     // Create reset URL (pointing to frontend)
-    const resetUrl = `http://localhost:3000/reset-password/${resetToken}`;
+    const clientUrl = process.env.CLIENT_URL || "http://localhost:3000";
+    const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
 
     const message = `
       <h1>You have requested a password reset</h1>

@@ -16,22 +16,35 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
   "http://localhost:5173",
   "http://localhost:3000",
-  "https://social-vibe-two.vercel.app",
-  "https://social-vibe-two.vercel.app/",
-  "https://social-vibe-gt7rfijxx-muralis-projects-22f687f9.vercel.app"
+  "https://social-vibe-two.vercel.app"
 ].filter(Boolean);
+
+const isOriginAllowed = (origin) => {
+  if (!origin) return true;
+  const normalizedOrigin = origin.replace(/\/$/, "");
+
+  // exact match
+  if (allowedOrigins.some(o => o.replace(/\/$/, "") === normalizedOrigin)) {
+    return true;
+  }
+
+  // allow all vercel preview + production domains
+  if (normalizedOrigin.endsWith(".vercel.app")) {
+    return true;
+  }
+
+  return false;
+};
 
 // ===== SOCKET.IO =====
 const io = new Server(server, {
   cors: {
     origin: function (origin, callback) {
-      if (!origin || allowedOrigins.some(o =>
-        o.replace(/\/$/, "") === origin.replace(/\/$/, "")
-      )) {
+      if (isOriginAllowed(origin)) {
         callback(null, true);
       } else {
         console.log("Socket.io CORS Rejected Origin:", origin);
-        callback(new Error("CORS Not Allowed"));
+        callback(new Error("Not allowed by CORS"));
       }
     },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
@@ -46,17 +59,11 @@ app.use(express.json());
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-
-    const isAllowed = allowedOrigins.some(o =>
-      o.replace(/\/$/, "") === origin.replace(/\/$/, "")
-    );
-
-    if (isAllowed) {
+    if (isOriginAllowed(origin)) {
       callback(null, true);
     } else {
       console.log("Express CORS Rejected Origin:", origin);
-      callback(new Error("CORS Not Allowed"));
+      callback(new Error("Not allowed by CORS"));
     }
   },
   credentials: true,
@@ -124,6 +131,6 @@ server.listen(PORT, () => {
 
 // ===== MONGODB =====
 mongoose
-  .connect(process.env.MONGO_URI)
+  .connect(process.env.MONGO_URI || process.env.MONGO_URL)
   .then(() => console.log("✅ MongoDB connected"))
   .catch((err) => console.error("❌ MongoDB connection failed:", err.message));
