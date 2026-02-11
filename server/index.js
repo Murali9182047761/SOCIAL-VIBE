@@ -125,11 +125,12 @@ io.on("connection", (socket) => {
 
   // ===== NEW: GROUP CALL EVENTS =====
   socket.on("joining group call", (roomID) => {
-    console.log(`User ${socket.id} joining group call room: ${roomID}`);
-    socket.join(roomID);
+    const callRoomID = `video_call_${roomID}`;
+    console.log(`User ${socket.id} joining group call room: ${callRoomID}`);
+    socket.join(callRoomID);
 
     // Get all users in the room except the current user
-    const clients = io.sockets.adapter.rooms.get(roomID);
+    const clients = io.sockets.adapter.rooms.get(callRoomID);
     const usersInRoom = clients ? Array.from(clients).filter(id => id !== socket.id) : [];
 
     socket.emit("all users in call", usersInRoom);
@@ -153,10 +154,32 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on("start group call", (data) => {
+    const { chatId, groupName, callerName, callerId, type, users } = data;
+    console.log(`📡 Start Group Call: Chat=${chatId}, From=${callerName}(${callerId})`);
+
+    if (users && Array.isArray(users)) {
+      users.forEach((u) => {
+        const targetId = String(typeof u === 'string' ? u : (u._id || u));
+        if (targetId === String(callerId)) return;
+
+        console.log(`   👉 Sending notification to user room: ${targetId}`);
+        // Using io.to ensure it goes to all sockets of that user
+        io.to(targetId).emit("incoming group call notification", {
+          chatId,
+          groupName,
+          callerName,
+          type
+        });
+      });
+    }
+  });
+
   socket.on("leaving group call", (roomID) => {
-    console.log(`User ${socket.id} leaving group call room: ${roomID}`);
-    socket.leave(roomID);
-    socket.to(roomID).emit("user left call", socket.id);
+    const callRoomID = `video_call_${roomID}`;
+    console.log(`User ${socket.id} leaving group call room: ${callRoomID}`);
+    socket.leave(callRoomID);
+    socket.to(callRoomID).emit("user left call", socket.id);
   });
 
   socket.on("new message", (newMessageRecieved) => {

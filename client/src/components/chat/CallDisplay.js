@@ -16,12 +16,10 @@ const GroupVideoParticipant = ({ peerObj }) => {
     const ref = useRef();
 
     useEffect(() => {
-        peerObj.peer.on("stream", stream => {
-            if (ref.current) {
-                ref.current.srcObject = stream;
-            }
-        });
-    }, [peerObj]);
+        if (ref.current && peerObj.stream) {
+            ref.current.srcObject = peerObj.stream;
+        }
+    }, [peerObj.stream]);
 
     return (
         <div style={{
@@ -71,20 +69,23 @@ const CallDisplay = () => {
         callStatus,
         // Group Call
         isGroupCall,
+        groupCall,
+        setGroupCall,
         groupPeers,
+        joinGroupCall,
         leaveGroupCall
     } = useSocket();
 
     const { selectedChat } = ChatState();
 
     useEffect(() => {
-        if ((call.isReceivingCall && !callAccepted) || (call.isCalling && !callAccepted) || (callAccepted && !callEnded) || (stream)) {
+        if ((call.isReceivingCall && !callAccepted) || (call.isCalling && !callAccepted) || (callAccepted && !callEnded) || (stream) || (groupCall)) {
             // Prevent body scroll when call is active
             document.body.style.overflow = 'hidden';
         } else {
             document.body.style.overflow = 'auto';
         }
-    }, [call.isReceivingCall, call.isCalling, callAccepted, callEnded, stream, call, callType]);
+    }, [call.isReceivingCall, call.isCalling, callAccepted, callEnded, stream, call, callType, groupCall]);
 
     useEffect(() => {
         if (myVideo.current && stream && !isScreenSharing) {
@@ -98,7 +99,7 @@ const CallDisplay = () => {
         }
     }, [remoteStream, userVideo, callAccepted]);
 
-    if (!call.isReceivingCall && !call.isCalling && !stream && !callAccepted) return null;
+    if (!call.isReceivingCall && !call.isCalling && !stream && !callAccepted && !groupCall) return null;
 
     return (
         <div style={{
@@ -116,6 +117,75 @@ const CallDisplay = () => {
             color: 'white',
             backdropFilter: 'blur(10px)'
         }}>
+            {/* Incoming Group Call Notification */}
+            {groupCall && !isGroupCall && (
+                <div className="incoming-call-container" style={{
+                    textAlign: 'center',
+                    background: 'rgba(34, 34, 34, 0.9)',
+                    padding: '50px',
+                    borderRadius: '24px',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                    border: '1px solid rgba(255,255,255,0.1)'
+                }}>
+                    <div style={{ marginBottom: '20px' }}>
+                        <div style={{
+                            width: '100px',
+                            height: '100px',
+                            borderRadius: '50%',
+                            background: 'linear-gradient(45deg, #FF512F, #DD2476)',
+                            margin: '0 auto',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '40px',
+                            fontWeight: 'bold'
+                        }}>
+                            {groupCall.groupName ? groupCall.groupName[0].toUpperCase() : 'G'}
+                        </div>
+                    </div>
+                    <h2 style={{ fontSize: '24px', margin: '15px 0' }}>{groupCall.groupName}</h2>
+                    <p style={{ color: '#aaa', marginBottom: '30px' }}>
+                        Incoming group {groupCall.type} call from {groupCall.callerName}...
+                    </p>
+                    <div style={{ display: 'flex', gap: '20px', justifyContent: 'center' }}>
+                        <button
+                            onClick={() => joinGroupCall({ _id: groupCall.chatId, chatName: groupCall.groupName, users: [] }, groupCall.type)}
+                            style={{
+                                background: '#4CAF50',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '60px',
+                                height: '60px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            <MdCall size={30} />
+                        </button>
+                        <button
+                            onClick={() => setGroupCall(null)}
+                            style={{
+                                background: '#f44336',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '60px',
+                                height: '60px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            <MdCallEnd size={30} />
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Incoming Call Notification */}
             {call.isReceivingCall && !callAccepted && (
                 <div style={{

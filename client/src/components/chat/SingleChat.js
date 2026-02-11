@@ -478,7 +478,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                                             alert("Microphone access denied");
                                         }
                                     } else {
-                                        joinGroupCall(selectedChat._id, 'voice');
+                                        joinGroupCall(selectedChat, 'voice');
                                     }
                                 }}
                             />
@@ -496,7 +496,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                                             alert("Camera/Microphone access denied");
                                         }
                                     } else {
-                                        joinGroupCall(selectedChat._id, 'video');
+                                        joinGroupCall(selectedChat, 'video');
                                     }
                                 }}
                             />

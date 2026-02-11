@@ -37,6 +37,7 @@ export const SocketProvider = ({ children }) => {
 
     // Group Call States
     const [isGroupCall, setIsGroupCall] = useState(false);
+    const [groupCall, setGroupCall] = useState(null); // { chatId, groupName, callerName, type }
     const [groupPeers, setGroupPeers] = useState([]); // Array of { peerID, peer, userName, stream }
     const peersRef = useRef([]); // To keep track of peers without re-renders
 
@@ -61,6 +62,7 @@ export const SocketProvider = ({ children }) => {
         peersRef.current = [];
         setGroupPeers([]);
         setIsGroupCall(false);
+        setGroupCall(null);
 
         setCall({});
         setCallAccepted(false);
@@ -91,10 +93,16 @@ export const SocketProvider = ({ children }) => {
             initiator: true,
             trickle: false,
             stream,
+            config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
         });
 
         peer.on("signal", signal => {
             socket.emit("sending-signal", { userToSignal, callerID, signal, userName: user?.name });
+        });
+
+        peer.on("stream", (remoteStream) => {
+            console.log("🎥 Received remote stream from peer:", userToSignal);
+            setGroupPeers(prev => prev.map(p => p.peerID === userToSignal ? { ...p, stream: remoteStream } : p));
         });
 
         return peer;
@@ -105,10 +113,17 @@ export const SocketProvider = ({ children }) => {
             initiator: false,
             trickle: false,
             stream,
+            config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
         });
 
         peer.on("signal", signal => {
+            // callerID is the person who initiated, so we return signal to them
             socket.emit("returning-signal", { signal, callerID, userName: user?.name });
+        });
+
+        peer.on("stream", (remoteStream) => {
+            console.log("🎥 Receiver side: Received remote stream from peer:", callerID);
+            setGroupPeers(prev => prev.map(p => p.peerID === callerID ? { ...p, stream: remoteStream } : p));
         });
 
         peer.signal(incomingSignal);
@@ -190,6 +205,11 @@ export const SocketProvider = ({ children }) => {
             setCallStatus('Ringing...');
         });
 
+        newSocket.on("incoming group call notification", (data) => {
+            console.log("📢 INCOMING GROUP CALL:", data);
+            setGroupCall(data);
+        });
+
         newSocket.on('callEnded', () => {
             console.log("📉 CALL ENDED BY REMOTE");
             handleCallTermination();
@@ -197,33 +217,55 @@ export const SocketProvider = ({ children }) => {
 
         return () => {
             if (newSocket) {
-                console.log("🔌 Disconnecting Socket");
+                console.log("🔌 Disconnecting Socket and cleaning up peers");
                 newSocket.disconnect();
                 setSocket(null);
+
+                // Cleanup peers on socket disconnect to prevent stale connections
+                peersRef.current.forEach(p => {
+                    try { p.peer.destroy(); } catch (e) { }
+                });
+                peersRef.current = [];
+                setGroupPeers([]);
             }
         };
     }, [userId, user, handleCallTermination, addPeer, createPeer]);
 
 
 
-    const joinGroupCall = useCallback(async (chatId, type) => {
+    const joinGroupCall = useCallback(async (selectedChat, type) => {
+        if (!socket) return;
         try {
             const mediaStream = await navigator.mediaDevices.getUserMedia({
                 video: type === 'video',
                 audio: true
             });
             setStream(mediaStream);
+            streamRef.current = mediaStream; // Ensure ref is updated immediately
             setIsGroupCall(true);
+            setGroupCall(null); // Clear incoming notification if any
             setCallType(type);
             setCallAccepted(true);
             setCallEnded(false);
 
-            socket.emit("joining group call", chatId);
+            // Notify others
+            if (selectedChat.users && selectedChat.users.length > 0) {
+                socket.emit("start group call", {
+                    chatId: selectedChat._id,
+                    groupName: selectedChat.chatName,
+                    callerName: user?.name,
+                    callerId: user?._id,
+                    type,
+                    users: selectedChat.users
+                });
+            }
+
+            socket.emit("joining group call", selectedChat._id);
         } catch (err) {
             console.error("Group call error:", err);
             alert("Could not access camera/microphone");
         }
-    }, [socket]);
+    }, [socket, user?.name, user?._id]);
 
     const leaveGroupCall = useCallback((chatId) => {
         if (socket && chatId) {
@@ -427,6 +469,8 @@ export const SocketProvider = ({ children }) => {
             callStatus,
             // Group Call exports
             isGroupCall,
+            groupCall,
+            setGroupCall,
             groupPeers,
             setGroupPeers,
             joinGroupCall,
