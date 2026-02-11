@@ -9,7 +9,8 @@ import {
     MdMic,
     MdMicOff,
     MdScreenShare,
-    MdStopScreenShare
+    MdStopScreenShare,
+    MdSwitchVideo
 } from 'react-icons/md';
 
 const GroupVideoParticipant = ({ peerObj }) => {
@@ -66,6 +67,8 @@ const CallDisplay = () => {
         toggleVideo,
         toggleAudio,
         toggleScreenShare,
+        switchCamera,
+        facingMode,
         callStatus,
         // Group Call
         isGroupCall,
@@ -87,17 +90,24 @@ const CallDisplay = () => {
         }
     }, [call.isReceivingCall, call.isCalling, callAccepted, callEnded, stream, call, callType, groupCall]);
 
-    useEffect(() => {
-        if (myVideo.current && stream && !isScreenSharing) {
-            myVideo.current.srcObject = stream;
+    // Callback refs for reliable stream attachment
+    const myVideoCallback = useCallback((node) => {
+        if (node && stream && !isScreenSharing) {
+            console.log("📺 Attaching local stream to myVideo element");
+            node.current = node; // Compatibility with existing code that might check ref.current
+            node.srcObject = stream;
         }
-    }, [stream, myVideo, isScreenSharing, callAccepted]);
+        myVideo.current = node;
+    }, [stream, isScreenSharing]);
 
-    useEffect(() => {
-        if (userVideo.current && remoteStream) {
-            userVideo.current.srcObject = remoteStream;
+    const userVideoCallback = useCallback((node) => {
+        if (node && remoteStream) {
+            console.log("📺 Attaching remote stream to userVideo element");
+            node.current = node;
+            node.srcObject = remoteStream;
         }
-    }, [remoteStream, userVideo, callAccepted]);
+        userVideo.current = node;
+    }, [remoteStream]);
 
     if (!call.isReceivingCall && !call.isCalling && !stream && !callAccepted && !groupCall) return null;
 
@@ -358,7 +368,7 @@ const CallDisplay = () => {
                             {callType === 'video' ? (
                                 <>
                                     {/* Other person's video (Full screen) */}
-                                    <video playsInline ref={userVideo} autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    <video playsInline ref={userVideoCallback} autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
 
                                     {/* My video (Small overlay) */}
                                     <div style={{
@@ -373,7 +383,7 @@ const CallDisplay = () => {
                                         overflow: 'hidden',
                                         background: '#000'
                                     }}>
-                                        <video playsInline muted ref={myVideo} autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover', display: isVideoMuted && !isScreenSharing ? 'none' : 'block' }} />
+                                        <video playsInline muted ref={myVideoCallback} autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover', display: isVideoMuted && !isScreenSharing ? 'none' : 'block' }} />
                                         {isVideoMuted && !isScreenSharing && (
                                             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#222' }}>
                                                 <MdVideocamOff size={40} color="#555" />
@@ -398,8 +408,8 @@ const CallDisplay = () => {
                                     </div>
                                     <h2 style={{ fontSize: '32px' }}>{call.name || "Active Call"}</h2>
                                     <p style={{ color: '#aaa', marginTop: '10px' }}>Voice Call in progress...</p>
-                                    <video playsInline ref={userVideo} autoPlay style={{ display: 'none' }} />
-                                    <video playsInline muted ref={myVideo} autoPlay style={{ display: 'none' }} />
+                                    <video playsInline ref={userVideoCallback} autoPlay style={{ display: 'none' }} />
+                                    <video playsInline muted ref={myVideoCallback} autoPlay style={{ display: 'none' }} />
                                 </div>
                             )}
                         </div>
@@ -479,6 +489,29 @@ const CallDisplay = () => {
                                 }}
                             >
                                 {isScreenSharing ? <MdStopScreenShare size={28} /> : <MdScreenShare size={28} />}
+                            </button>
+                        )}
+
+                        {/* Switch Camera Toggle */}
+                        {callType === 'video' && !isScreenSharing && (
+                            <button
+                                onClick={switchCamera}
+                                style={{
+                                    background: 'rgba(255,255,255,0.1)',
+                                    border: 'none',
+                                    borderRadius: '50%',
+                                    width: '55px',
+                                    height: '55px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: 'white',
+                                    transition: 'all 0.2s'
+                                }}
+                                title="Switch Camera"
+                            >
+                                <MdSwitchVideo size={28} />
                             </button>
                         )}
 

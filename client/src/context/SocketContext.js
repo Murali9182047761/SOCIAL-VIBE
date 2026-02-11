@@ -25,6 +25,7 @@ export const SocketProvider = ({ children }) => {
     const [isVideoMuted, setIsVideoMuted] = useState(false);
     const [isAudioMuted, setIsAudioMuted] = useState(false);
     const [isScreenSharing, setIsScreenSharing] = useState(false);
+    const [facingMode, setFacingMode] = useState('user'); // 'user' or 'environment'
 
     const myVideo = useRef();
     const userVideo = useRef();
@@ -87,12 +88,21 @@ export const SocketProvider = ({ children }) => {
     // Stable User ID for dependencies
     const userId = user?._id;
 
+    // Significance of refs: 
+    // socketRef helps us access the socket without triggering re-renders or dependencies
+    const socketRef = useRef();
+
     useEffect(() => {
         if (!userId) return;
 
-        // Signaling Helper inside stable effect to avoid closures issues
+        console.log("🔌 Attempting Socket Connection for:", user?.name);
+        const newSocket = io(SERVER_URL);
+        socketRef.current = newSocket;
+        setSocket(newSocket);
+        setName(user?.name);
+
         const createPeer = (userToSignal, callerID, stream, socket) => {
-            console.log("🛠️ Creating initiator peer for:", userToSignal);
+            console.log("🛠️ Creating initiator peer for user:", userToSignal);
             const peer = new Peer({
                 initiator: true,
                 trickle: false,
@@ -109,13 +119,13 @@ export const SocketProvider = ({ children }) => {
                 setGroupPeers(prev => prev.map(p => p.peerID === userToSignal ? { ...p, stream: remoteStream } : p));
             });
 
-            peer.on("error", (err) => console.error("❌ PEER ERROR (Group Initiator):", err));
+            peer.on("error", (err) => console.error("❌ Peer Error (Initiator):", err));
 
             return peer;
         };
 
         const addPeer = (incomingSignal, callerID, stream, socket) => {
-            console.log("🛠️ Creating receiver peer for:", callerID);
+            console.log("🛠️ Creating receiver peer for user:", callerID);
             const peer = new Peer({
                 initiator: false,
                 trickle: false,
@@ -132,16 +142,11 @@ export const SocketProvider = ({ children }) => {
                 setGroupPeers(prev => prev.map(p => p.peerID === callerID ? { ...p, stream: remoteStream } : p));
             });
 
-            peer.on("error", (err) => console.error("❌ PEER ERROR (Group Receiver):", err));
+            peer.on("error", (err) => console.error("❌ Peer Error (Receiver):", err));
 
             peer.signal(incomingSignal);
             return peer;
         };
-
-        console.log("🔌 Attempting Socket Connection for:", user?.name);
-        const newSocket = io(SERVER_URL);
-        setSocket(newSocket);
-        setName(user?.name);
 
         newSocket.on("connect", () => {
             console.log("✅ Socket Connected, ID:", newSocket.id);
@@ -156,7 +161,6 @@ export const SocketProvider = ({ children }) => {
             newSocket.emit('ringing', { to: from });
         });
 
-        // Group Call Listeners
         newSocket.on("all users in call", (users) => {
             console.log("👥 Batch connecting to existing users:", users);
             const peers = [];
@@ -223,9 +227,9 @@ export const SocketProvider = ({ children }) => {
 
         return () => {
             if (newSocket) {
-                console.log("🔌 Disconnecting Socket and cleaning up peers stage 1");
+                console.log("🔌 Cleaning up socket connection");
                 newSocket.disconnect();
-                setSocket(null);
+                socketRef.current = null;
             }
         };
     }, [userId, user?.name, handleCallTermination]);
@@ -367,11 +371,12 @@ export const SocketProvider = ({ children }) => {
     const leaveCall = useCallback((toId) => {
         const targetId = toId || otherUserId;
         console.log("🚪 Leaving call, target:", targetId);
-        if (socket && targetId) {
-            socket.emit("endCall", { to: targetId });
+        console.trace("Trace for leaveCall invocation:");
+        if (socketRef.current && targetId) {
+            socketRef.current.emit("endCall", { to: targetId });
         }
         handleCallTermination();
-    }, [socket, otherUserId, handleCallTermination]);
+    }, [otherUserId, handleCallTermination]);
 
     // Feature Toggles
     const toggleVideo = useCallback(() => {
@@ -471,6 +476,54 @@ export const SocketProvider = ({ children }) => {
         }
     }, [isScreenSharing, stream, stopScreenSharing]);
 
+    const switchCamera = useCallback(async () => {
+        if (!stream || isScreenSharing) return;
+
+        try {
+            const currentVideoTrack = stream.getVideoTracks()[0];
+            const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
+
+            console.log("🔄 Switching camera to:", newFacingMode);
+
+            const newStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: newFacingMode },
+                audio: false
+            });
+
+            const newVideoTrack = newStream.getVideoTracks()[0];
+
+            // 1. Replace track in single call
+            if (connectionRef.current && currentVideoTrack) {
+                connectionRef.current.replaceTrack(currentVideoTrack, newVideoTrack, stream);
+            }
+
+            // 2. Replace track in group call
+            peersRef.current.forEach(p => {
+                if (currentVideoTrack) {
+                    p.peer.replaceTrack(currentVideoTrack, newVideoTrack, stream);
+                }
+            });
+
+            // 3. Stop old track
+            if (currentVideoTrack) {
+                currentVideoTrack.stop();
+            }
+
+            // 4. Update local stream
+            const combinedStream = new MediaStream([newVideoTrack, ...stream.getAudioTracks()]);
+            setStream(combinedStream);
+            streamRef.current = combinedStream;
+            setFacingMode(newFacingMode);
+
+            if (myVideo.current) {
+                myVideo.current.srcObject = combinedStream;
+            }
+        } catch (err) {
+            console.error("❌ Error switching camera:", err);
+            alert("Could not switch camera. Ensure your device has multiple cameras and permissions are granted.");
+        }
+    }, [stream, facingMode, isScreenSharing]);
+
     return (
         <SocketContext.Provider value={{
             call,
@@ -496,6 +549,8 @@ export const SocketProvider = ({ children }) => {
             toggleVideo,
             toggleAudio,
             toggleScreenShare,
+            switchCamera,
+            facingMode,
             callStatus,
             // Group Call exports
             isGroupCall,
