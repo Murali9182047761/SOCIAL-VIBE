@@ -27,6 +27,15 @@ function Profile() {
   const [viewProfileImage, setViewProfileImage] = useState(false);
   const [viewCoverImage, setViewCoverImage] = useState(false);
 
+  // New Settings States
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [pushNotifications, setPushNotifications] = useState(true);
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
+  const [settingsLoading, setSettingsLoading] = useState(false);
+
 
   const navigate = useNavigate();
   const { userId } = useParams(); // Get ID from URL if present
@@ -293,8 +302,130 @@ function Profile() {
     setSettingsTab(tab);
     setSettingsEmail(user.email || "");
     setSettingsPrivacy(user.privacySettings?.profileVisibility || "public");
+    setIsPrivate(user.privacySettings?.profileVisibility === "private");
+    setEmailNotifications(user.notificationSettings?.emailNotifications ?? true);
+    setPushNotifications(user.notificationSettings?.pushNotifications ?? true);
+    setTwoFactorEnabled(user.twoFactorEnabled || false);
+
     setShowSettings(false); // close dropdown
     setIsSettingsModalOpen(true);
+  };
+
+  const updateProfileSettings = async (updates) => {
+    setSettingsLoading(true);
+    try {
+      const formData = new FormData();
+      for (const key in updates) {
+        if (typeof updates[key] === 'object') {
+          formData.append(key, JSON.stringify(updates[key]));
+        } else {
+          formData.append(key, updates[key]);
+        }
+      }
+
+      const res = await axios.put(`${API_URL}/user/profile`, formData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setUser(res.data);
+      if (isOwnProfile) {
+        const localUser = JSON.parse(localStorage.getItem("user"));
+        localStorage.setItem("user", JSON.stringify({ ...localUser, ...res.data }));
+      }
+      setSettingsLoading(false);
+      return true;
+    } catch (err) {
+      console.log("Error updating settings", err);
+      setSettingsLoading(false);
+      alert("Failed to update settings");
+      return false;
+    }
+  };
+
+  const handlePrivacyToggle = async (e) => {
+    const newVal = e.target.checked;
+    setIsPrivate(newVal);
+    const newStatus = newVal ? "private" : "public";
+    setSettingsPrivacy(newStatus);
+    const success = await updateProfileSettings({ privacySettings: { profileVisibility: newStatus } });
+    if (!success) {
+      setIsPrivate(!newVal);
+      setSettingsPrivacy(!newVal ? "private" : "public");
+    }
+  };
+
+  const handleEmailNotifToggle = async (e) => {
+    const newVal = e.target.checked;
+    setEmailNotifications(newVal);
+    const success = await updateProfileSettings({
+      notificationSettings: { emailNotifications: newVal, pushNotifications }
+    });
+    if (!success) setEmailNotifications(!newVal);
+  };
+
+  const handlePushNotifToggle = async (e) => {
+    const newVal = e.target.checked;
+    setPushNotifications(newVal);
+    const success = await updateProfileSettings({
+      notificationSettings: { emailNotifications, pushNotifications: newVal }
+    });
+    if (!success) setPushNotifications(!newVal);
+  };
+
+  const handle2FAToggle = async (e) => {
+    const newVal = e.target.checked;
+    setTwoFactorEnabled(newVal);
+    const success = await updateProfileSettings({ twoFactorEnabled: newVal });
+    if (!success) setTwoFactorEnabled(!newVal);
+  };
+
+  const handlePasswordUpdate = async (e) => {
+    e.preventDefault();
+    if (passwords.new !== passwords.confirm) {
+      alert("New passwords do not match!");
+      return;
+    }
+    setSettingsLoading(true);
+    try {
+      await axios.post(`${API_URL}/auth/update-password`, {
+        userId: user._id,
+        currentPassword: passwords.current,
+        newPassword: passwords.new
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert("Password updated successfully!");
+      setShowPasswordModal(false);
+      setPasswords({ current: "", new: "", confirm: "" });
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to update password");
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!window.confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
+      return;
+    }
+
+    const confirmName = window.prompt(`Type "${user.name}" to confirm deletion:`);
+    if (confirmName !== user.name) {
+      alert("Name does not match. Deletion cancelled.");
+      return;
+    }
+
+    try {
+      await axios.delete(`${API_URL}/user/profile`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert("Account deleted.");
+      localStorage.clear();
+      navigate("/login");
+    } catch (err) {
+      console.error("Delete account error:", err);
+      alert(err.response?.data?.message || "Failed to delete account");
+    }
   };
 
   const handleSettingsSubmit = async (e) => {
@@ -345,7 +476,7 @@ function Profile() {
       {/* Settings Modal */}
       {isSettingsModalOpen && (
         <div className="edit-modal-overlay">
-          <div className="edit-modal">
+          <div className="edit-modal" style={{ width: "450px" }}>
             <div style={{ display: "flex", borderBottom: "1px solid #eee", marginBottom: "20px" }}>
               <div
                 style={{ padding: "10px", cursor: "pointer", fontWeight: settingsTab === "ACCOUNT" ? "bold" : "normal", borderBottom: settingsTab === "ACCOUNT" ? "2px solid black" : "none" }}
@@ -357,34 +488,134 @@ function Profile() {
                 style={{ padding: "10px", cursor: "pointer", fontWeight: settingsTab === "PRIVACY" ? "bold" : "normal", borderBottom: settingsTab === "PRIVACY" ? "2px solid black" : "none" }}
                 onClick={() => setSettingsTab("PRIVACY")}
               >
-                Privacy
+                Privacy & Notifications
               </div>
             </div>
 
-            <form onSubmit={handleSettingsSubmit}>
+            <div style={{ maxHeight: "70vh", overflowY: "auto", padding: "5px" }}>
               {settingsTab === "ACCOUNT" && (
-                <div className="form-group">
-                  <label>Email Address</label>
-                  <input type="email" value={settingsEmail} onChange={(e) => setSettingsEmail(e.target.value)} required />
+                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                  <div className="form-group">
+                    <label>Email Address</label>
+                    <div style={{ display: "flex", gap: "10px" }}>
+                      <input type="email" value={settingsEmail} onChange={(e) => setSettingsEmail(e.target.value)} required style={{ flex: 1 }} />
+                      <button
+                        onClick={() => handleSettingsSubmit({ preventDefault: () => { } })}
+                        style={{ padding: "8px 12px", background: "#0095f6", color: "white", border: "none", borderRadius: "4px", fontSize: "12px" }}
+                      >
+                        Update
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ padding: "15px", border: "1px solid #ddd", borderRadius: "8px" }}>
+                    <h4 style={{ margin: "0 0 5px 0" }}>Account Security</h4>
+                    <p style={{ fontSize: "12px", color: "#666", marginBottom: "15px" }}>Change password, enable 2FA.</p>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <button
+                        className="btn-primary"
+                        onClick={() => setShowPasswordModal(true)}
+                        style={{ padding: "8px 16px", borderRadius: "5px", fontSize: "13px", background: "linear-gradient(45deg, #4facfe 0%, #00f2fe 100%)", border: "none", color: "white" }}
+                      >
+                        Update Password
+                      </button>
+                      <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                        <input type="checkbox" checked={twoFactorEnabled} onChange={handle2FAToggle} disabled={settingsLoading} />
+                        <span style={{ fontSize: "14px" }}>Enable 2FA</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div style={{ padding: "15px", border: "1px solid #ff4d4f", borderRadius: "8px", background: "rgba(255, 77, 79, 0.05)" }}>
+                    <h4 style={{ margin: "0 0 5px 0", color: "#ff4d4f" }}>Danger Zone</h4>
+                    <p style={{ fontSize: "12px", color: "#666", marginBottom: "10px" }}>Once you delete your account, there is no going back. Please be certain.</p>
+                    <button
+                      onClick={handleDeleteAccount}
+                      style={{ padding: "8px 16px", borderRadius: "5px", border: "1px solid #ff4d4f", background: "transparent", color: "#ff4d4f", cursor: "pointer", fontWeight: "600", fontSize: "13px" }}
+                    >
+                      Delete Account
+                    </button>
+                  </div>
                 </div>
               )}
 
               {settingsTab === "PRIVACY" && (
-                <div className="form-group">
-                  <label>Profile Visibility</label>
-                  <select value={settingsPrivacy} onChange={(e) => setSettingsPrivacy(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: "4px", border: "1px solid #ccc" }}>
-                    <option value="public">Public</option>
-                    <option value="private">Private</option>
-                  </select>
-                  <p style={{ fontSize: "12px", color: "#666", marginTop: "5px" }}>
-                    Private profiles are only visible to followers.
-                  </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                  <div style={{ padding: "15px", border: "1px solid #ddd", borderRadius: "8px" }}>
+                    <h4 style={{ margin: "0 0 5px 0" }}>Privacy</h4>
+                    <p style={{ fontSize: "12px", color: "#666", marginBottom: "10px" }}>Manage who can see your posts and profile.</p>
+                    <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}>
+                      <input type="checkbox" checked={isPrivate} onChange={handlePrivacyToggle} disabled={settingsLoading} />
+                      <span style={{ fontWeight: "500", fontSize: "14px" }}>Private Account</span>
+                    </label>
+                  </div>
+
+                  <div style={{ padding: "15px", border: "1px solid #ddd", borderRadius: "8px" }}>
+                    <h4 style={{ margin: "0 0 5px 0" }}>Notifications</h4>
+                    <p style={{ fontSize: "12px", color: "#666", marginBottom: "10px" }}>Configure what you want to be notified about.</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}>
+                        <input type="checkbox" checked={emailNotifications} onChange={handleEmailNotifToggle} disabled={settingsLoading} />
+                        <span style={{ fontSize: "14px" }}>Email Notifications</span>
+                      </label>
+                      <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer" }}>
+                        <input type="checkbox" checked={pushNotifications} onChange={handlePushNotifToggle} disabled={settingsLoading} />
+                        <span style={{ fontSize: "14px" }}>Push Notifications</span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
               )}
+            </div>
 
+            <div className="modal-actions" style={{ marginTop: "20px" }}>
+              <button type="button" onClick={() => setIsSettingsModalOpen(false)} style={{ background: "#ccc", width: "100%" }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Password Update Modal */}
+      {showPasswordModal && (
+        <div className="edit-modal-overlay" style={{ zIndex: 2000 }}>
+          <div className="edit-modal" style={{ width: "400px" }}>
+            <h3>Change Password</h3>
+            <form onSubmit={handlePasswordUpdate} style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+              <div className="form-group">
+                <input
+                  type="password"
+                  placeholder="Current Password"
+                  value={passwords.current}
+                  onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
+                  required
+                  style={{ padding: "10px", width: "100%" }}
+                />
+              </div>
+              <div className="form-group">
+                <input
+                  type="password"
+                  placeholder="New Password"
+                  value={passwords.new}
+                  onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
+                  required
+                  style={{ padding: "10px", width: "100%" }}
+                />
+              </div>
+              <div className="form-group">
+                <input
+                  type="password"
+                  placeholder="Confirm New Password"
+                  value={passwords.confirm}
+                  onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
+                  required
+                  style={{ padding: "10px", width: "100%" }}
+                />
+              </div>
               <div className="modal-actions">
-                <button type="button" onClick={() => setIsSettingsModalOpen(false)} style={{ background: "#ccc", marginRight: "10px" }}>Cancel</button>
-                <button type="submit" style={{ background: "#0095f6", color: "white" }}>Save Changes</button>
+                <button type="button" onClick={() => setShowPasswordModal(false)} style={{ background: "#ccc" }}>Cancel</button>
+                <button type="submit" disabled={settingsLoading} style={{ background: "#0095f6", color: "white" }}>
+                  {settingsLoading ? "Updating..." : "Update Password"}
+                </button>
               </div>
             </form>
           </div>
