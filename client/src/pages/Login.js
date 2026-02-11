@@ -133,16 +133,28 @@ function Login() {
               Sign In
             </motion.button>
 
-            <div style={{ margin: "20px 0", display: "flex", justifyContent: "center" }}>
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={() => {
-                  console.log('Login Failed');
-                  setMessage("Google Login Failed");
-                }}
-                shape="pill"
-                width="100%"
-              />
+            <div style={{ margin: "15px 0", textAlign: "center", position: "relative" }}>
+              <div style={{ borderBottom: "1px solid var(--border-color)", position: "absolute", top: "50%", width: "100%", zIndex: 0 }}></div>
+              <span style={{ background: "var(--card-background)", padding: "0 10px", position: "relative", zIndex: 1, fontSize: "14px", color: "var(--text-secondary)" }}>
+                Or sign in with
+              </span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "20px", width: "100%" }}>
+              <div style={{ minHeight: "40px", display: "flex", justifyContent: "center", width: "100%" }}>
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => {
+                    console.log('Login Failed');
+                    setMessage("Google Login Failed");
+                  }}
+                  theme="filled_blue"
+                  shape="pill"
+                  width="280"
+                />
+              </div>
+              <p style={{ fontSize: "10px", color: "var(--text-secondary)", marginTop: "5px" }}>
+                Secure login with Google Identity
+              </p>
             </div>
           </>
         ) : (

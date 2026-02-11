@@ -30,7 +30,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     const timerRef = useRef(null);
 
     const { user, selectedChat, setSelectedChat, notification, setNotification, setOnlineUsers } = ChatState();
-    const { socket, callUser, setStream } = useSocket();
+    const { socket, callUser, setStream, joinGroupCall } = useSocket();
 
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
@@ -464,39 +464,42 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
 
                         {/* Chat Options (For both Group and Single) */}
                         <div style={{ position: "relative", display: "flex", alignItems: "center", gap: "15px" }}>
-                            {!selectedChat.isGroupChat && (
-                                <>
-                                    <AiOutlinePhone
-                                        size={24}
-                                        style={{ cursor: "pointer", color: "var(--text-primary)" }}
-                                        onClick={async () => {
-                                            const otherUser = selectedChat.users.find(u => u._id !== user._id);
-                                            try {
-                                                const currentStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                                                setStream(currentStream);
-                                                callUser(otherUser._id, otherUser.name, 'voice', currentStream);
-                                            } catch (err) {
-                                                alert("Microphone access denied");
-                                            }
-                                        }}
-                                    />
-                                    <AiOutlineVideoCamera
-                                        size={24}
-                                        style={{ cursor: "pointer", color: "var(--text-primary)" }}
-                                        onClick={async () => {
-                                            const otherUser = selectedChat.users.find(u => u._id !== user._id);
-                                            try {
-                                                const currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                                                setStream(currentStream);
-                                                callUser(otherUser._id, otherUser.name, 'video', currentStream);
-                                            } catch (err) {
-                                                alert("Camera/Microphone access denied");
-                                            }
-                                        }}
-                                    />
-
-                                </>
-                            )}
+                            <AiOutlinePhone
+                                size={24}
+                                style={{ cursor: "pointer", color: "var(--text-primary)" }}
+                                onClick={async () => {
+                                    if (!selectedChat.isGroupChat) {
+                                        const otherUser = selectedChat.users.find(u => u._id !== user._id);
+                                        try {
+                                            const currentStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                                            setStream(currentStream);
+                                            callUser(otherUser._id, otherUser.name, 'voice', currentStream);
+                                        } catch (err) {
+                                            alert("Microphone access denied");
+                                        }
+                                    } else {
+                                        joinGroupCall(selectedChat._id, 'voice');
+                                    }
+                                }}
+                            />
+                            <AiOutlineVideoCamera
+                                size={24}
+                                style={{ cursor: "pointer", color: "var(--text-primary)" }}
+                                onClick={async () => {
+                                    if (!selectedChat.isGroupChat) {
+                                        const otherUser = selectedChat.users.find(u => u._id !== user._id);
+                                        try {
+                                            const currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                                            setStream(currentStream);
+                                            callUser(otherUser._id, otherUser.name, 'video', currentStream);
+                                        } catch (err) {
+                                            alert("Camera/Microphone access denied");
+                                        }
+                                    } else {
+                                        joinGroupCall(selectedChat._id, 'video');
+                                    }
+                                }}
+                            />
                             <AiOutlineInfoCircle
                                 size={24}
                                 style={{ cursor: "pointer", color: "var(--text-primary)" }}

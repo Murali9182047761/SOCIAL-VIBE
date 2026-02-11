@@ -35,15 +35,33 @@ export const SocketProvider = ({ children }) => {
         streamRef.current = stream;
     }, [stream]);
 
+    // Group Call States
+    const [isGroupCall, setIsGroupCall] = useState(false);
+    const [groupPeers, setGroupPeers] = useState([]); // Array of { peerID, peer, userName, stream }
+    const peersRef = useRef([]); // To keep track of peers without re-renders
+
     const handleCallTermination = useCallback(() => {
         console.log("☎️ Call Termination cleaning up...");
         setCallEnded(true);
+
+        // Cleanup single call
         if (connectionRef.current) {
             try {
                 connectionRef.current.destroy();
                 connectionRef.current = null;
             } catch (e) { }
         }
+
+        // Cleanup group call
+        peersRef.current.forEach(p => {
+            try {
+                p.peer.destroy();
+            } catch (e) { }
+        });
+        peersRef.current = [];
+        setGroupPeers([]);
+        setIsGroupCall(false);
+
         setCall({});
         setCallAccepted(false);
         setRemoteStream(null);
@@ -67,6 +85,37 @@ export const SocketProvider = ({ children }) => {
     // Stable User ID for dependencies
     const userId = user?._id;
 
+    // Group Call Signaling Helpers
+    const createPeer = useCallback((userToSignal, callerID, stream, socket) => {
+        const peer = new Peer({
+            initiator: true,
+            trickle: false,
+            stream,
+        });
+
+        peer.on("signal", signal => {
+            socket.emit("sending-signal", { userToSignal, callerID, signal, userName: user?.name });
+        });
+
+        return peer;
+    }, [user?.name]);
+
+    const addPeer = useCallback((incomingSignal, callerID, stream, socket) => {
+        const peer = new Peer({
+            initiator: false,
+            trickle: false,
+            stream,
+        });
+
+        peer.on("signal", signal => {
+            socket.emit("returning-signal", { signal, callerID, userName: user?.name });
+        });
+
+        peer.signal(incomingSignal);
+
+        return peer;
+    }, [user?.name]);
+
     useEffect(() => {
         if (!userId) return;
 
@@ -88,6 +137,54 @@ export const SocketProvider = ({ children }) => {
             newSocket.emit('ringing', { to: from });
         });
 
+        // Group Call Listeners
+        newSocket.on("all users in call", (users) => {
+            console.log("👥 Batch connecting to existing users:", users);
+            const peers = [];
+            users.forEach(userID => {
+                const peer = createPeer(userID, newSocket.id, streamRef.current, newSocket);
+                peersRef.current.push({
+                    peerID: userID,
+                    peer,
+                });
+                peers.push({
+                    peerID: userID,
+                    peer,
+                });
+            });
+            setGroupPeers(peers);
+        });
+
+        newSocket.on("user joined call", (payload) => {
+            console.log("👤 New user joined group call:", payload.callerID, payload.userName);
+            const peer = addPeer(payload.signal, payload.callerID, streamRef.current, newSocket);
+            peersRef.current.push({
+                peerID: payload.callerID,
+                peer,
+            });
+
+            setGroupPeers(users => [...users, { peerID: payload.callerID, peer, userName: payload.userName }]);
+        });
+
+        newSocket.on("receiving returned signal", (payload) => {
+            console.log("📥 Received returned signal from:", payload.id, payload.userName);
+            const item = peersRef.current.find(p => p.peerID === payload.id);
+            if (item) {
+                item.peer.signal(payload.signal);
+            }
+            setGroupPeers(users => users.map(u => u.peerID === payload.id ? { ...u, userName: payload.userName } : u));
+        });
+
+        newSocket.on("user left call", (id) => {
+            const peerObj = peersRef.current.find(p => p.peerID === id);
+            if (peerObj) {
+                peerObj.peer.destroy();
+            }
+            const peers = peersRef.current.filter(p => p.peerID !== id);
+            peersRef.current = peers;
+            setGroupPeers(peers);
+        });
+
         newSocket.on('ringing', () => {
             console.log("🔔 Call is ringing on remote side");
             setCallStatus('Ringing...');
@@ -105,7 +202,35 @@ export const SocketProvider = ({ children }) => {
                 setSocket(null);
             }
         };
-    }, [userId, user, handleCallTermination]); // Include user to satisfy ESLint
+    }, [userId, user, handleCallTermination, addPeer, createPeer]);
+
+
+
+    const joinGroupCall = useCallback(async (chatId, type) => {
+        try {
+            const mediaStream = await navigator.mediaDevices.getUserMedia({
+                video: type === 'video',
+                audio: true
+            });
+            setStream(mediaStream);
+            setIsGroupCall(true);
+            setCallType(type);
+            setCallAccepted(true);
+            setCallEnded(false);
+
+            socket.emit("joining group call", chatId);
+        } catch (err) {
+            console.error("Group call error:", err);
+            alert("Could not access camera/microphone");
+        }
+    }, [socket]);
+
+    const leaveGroupCall = useCallback((chatId) => {
+        if (socket && chatId) {
+            socket.emit("leaving group call", chatId);
+        }
+        handleCallTermination();
+    }, [socket, handleCallTermination]);
 
     const answerCall = useCallback((currentStream) => {
         console.log("📞 Answering Call...");
@@ -226,10 +351,17 @@ export const SocketProvider = ({ children }) => {
                 const screenStream = await navigator.mediaDevices.getDisplayMedia({ cursor: true });
                 const screenTrack = screenStream.getTracks()[0];
 
+                // Single call track replacement
                 if (connectionRef.current) {
                     const videoTrack = stream.getVideoTracks()[0];
                     connectionRef.current.replaceTrack(videoTrack, screenTrack, stream);
                 }
+
+                // Group call track replacement
+                peersRef.current.forEach(p => {
+                    const videoTrack = stream.getVideoTracks()[0];
+                    p.peer.replaceTrack(videoTrack, screenTrack, stream);
+                });
 
                 myVideo.current.srcObject = screenStream;
                 setIsScreenSharing(true);
@@ -239,6 +371,9 @@ export const SocketProvider = ({ children }) => {
                     if (connectionRef.current) {
                         connectionRef.current.replaceTrack(screenTrack, videoTrack, stream);
                     }
+                    peersRef.current.forEach(p => {
+                        p.peer.replaceTrack(screenTrack, videoTrack, stream);
+                    });
                     myVideo.current.srcObject = stream;
                     setIsScreenSharing(false);
                     screenStream.getTracks().forEach(track => track.stop());
@@ -255,6 +390,9 @@ export const SocketProvider = ({ children }) => {
             if (connectionRef.current) {
                 connectionRef.current.replaceTrack(screenTrack, videoTrack, stream);
             }
+            peersRef.current.forEach(p => {
+                p.peer.replaceTrack(screenTrack, videoTrack, stream);
+            });
             myVideo.current.srcObject = stream;
             setIsScreenSharing(false);
             screenStream.getTracks().forEach(track => track.stop());
@@ -286,7 +424,13 @@ export const SocketProvider = ({ children }) => {
             toggleVideo,
             toggleAudio,
             toggleScreenShare,
-            callStatus
+            callStatus,
+            // Group Call exports
+            isGroupCall,
+            groupPeers,
+            setGroupPeers,
+            joinGroupCall,
+            leaveGroupCall
         }}>
             {children}
         </SocketContext.Provider>

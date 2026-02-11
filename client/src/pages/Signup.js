@@ -162,20 +162,29 @@ function Signup() {
           Sign Up
         </motion.button>
 
-        <div style={{ margin: "20px 0", display: "flex", justifyContent: "center" }}>
-          <p style={{ margin: "0 0 10px 0", width: "100%", textAlign: "center", fontSize: "12px", color: "var(--text-secondary)" }}>Or sign up with</p>
+        <div style={{ margin: "15px 0", textAlign: "center", position: "relative" }}>
+          <div style={{ borderBottom: "1px solid var(--border-color)", position: "absolute", top: "50%", width: "100%", zIndex: 0 }}></div>
+          <span style={{ background: "var(--card-background)", padding: "0 10px", position: "relative", zIndex: 1, fontSize: "14px", color: "var(--text-secondary)" }}>
+            Or sign up with
+          </span>
         </div>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: "20px" }}>
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={() => {
-              console.log('Login Failed');
-              setMessage("Google Login Failed");
-            }}
-            text="signup_with"
-            shape="pill"
-            width="100%"
-          />
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: "20px", width: "100%" }}>
+          <div style={{ minHeight: "40px", display: "flex", justifyContent: "center", width: "100%" }}>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => {
+                console.log('Login Failed');
+                setMessage("Google Login Failed");
+              }}
+              text="signup_with"
+              theme="filled_blue"
+              shape="pill"
+              width="280"
+            />
+          </div>
+          <p style={{ fontSize: "10px", color: "var(--text-secondary)", marginTop: "5px" }}>
+            Fast and secure registration
+          </p>
         </div>
 
         <div className="auth-footer">

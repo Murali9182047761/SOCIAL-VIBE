@@ -123,6 +123,42 @@ io.on("connection", (socket) => {
     io.to(to).emit("callEnded");
   });
 
+  // ===== NEW: GROUP CALL EVENTS =====
+  socket.on("joining group call", (roomID) => {
+    console.log(`User ${socket.id} joining group call room: ${roomID}`);
+    socket.join(roomID);
+
+    // Get all users in the room except the current user
+    const clients = io.sockets.adapter.rooms.get(roomID);
+    const usersInRoom = clients ? Array.from(clients).filter(id => id !== socket.id) : [];
+
+    socket.emit("all users in call", usersInRoom);
+  });
+
+  socket.on("sending-signal", (payload) => {
+    console.log(`Relaying signal from ${payload.callerID} to ${payload.userToSignal}`);
+    io.to(payload.userToSignal).emit('user joined call', {
+      signal: payload.signal,
+      callerID: payload.callerID,
+      userName: payload.userName
+    });
+  });
+
+  socket.on("returning-signal", (payload) => {
+    console.log(`Returning signal from ${socket.id} to ${payload.callerID}`);
+    io.to(payload.callerID).emit('receiving returned signal', {
+      signal: payload.signal,
+      id: socket.id,
+      userName: payload.userName
+    });
+  });
+
+  socket.on("leaving group call", (roomID) => {
+    console.log(`User ${socket.id} leaving group call room: ${roomID}`);
+    socket.leave(roomID);
+    socket.to(roomID).emit("user left call", socket.id);
+  });
+
   socket.on("new message", (newMessageRecieved) => {
     const chat = newMessageRecieved.chat;
     if (!chat.users) return;
