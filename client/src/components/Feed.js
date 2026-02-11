@@ -337,11 +337,13 @@ const Feed = ({ initialType = "latest" }) => {
                 src={story.picturePath}
                 alt="story"
                 className="story-bg-img"
+                loading="lazy"
               />
               <img
                 src={story.userPicturePath || "https://cdn-icons-png.flaticon.com/512/149/149071.png"}
                 alt="avatar"
                 className="story-avatar-small"
+                loading="lazy"
               />
               <div className="story-name-overlay">{story.username}</div>
             </div>
@@ -448,6 +450,7 @@ const Feed = ({ initialType = "latest" }) => {
               src={user?.profilePicture || "https://cdn-icons-png.flaticon.com/512/149/149071.png"}
               alt="user"
               style={{ width: "40px", height: "40px", borderRadius: "50%", objectFit: "cover" }}
+              loading="lazy"
             />
             <input
               className="create-post-input"

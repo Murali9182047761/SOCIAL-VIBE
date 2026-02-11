@@ -642,6 +642,7 @@ function Profile() {
             className="profile-pic-large"
             style={{ cursor: "pointer" }}
             onClick={() => setViewProfileImage(true)}
+            loading="lazy"
           />
         </div>
         <div className="profile-info-section">
@@ -870,7 +871,7 @@ function Profile() {
             {displayPosts.map((post) => (
               <div key={post._id} className="profile-post-card" onClick={() => setSelectedPost(post)}>
                 {post.picturePath ? (
-                  <img src={post.picturePath} alt="post" className="profile-grid-img" />
+                  <img src={post.picturePath} alt="post" className="profile-grid-img" loading="lazy" />
                 ) : (
                   <div className="profile-text-post">
                     {post.description}

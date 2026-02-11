@@ -23,6 +23,7 @@
 
   /* Glassmorphism */
   --card-background: rgba(255, 255, 255, 0.75);
+  --glass-highlight: rgba(255, 255, 255, 0.3);
   --text-primary: #1e293b;
   --text-secondary: #64748b;
 
@@ -32,8 +33,17 @@
   --input-bg: rgba(255, 255, 255, 0.6);
   --input-text: #0F172A;
   --border-color: rgba(255, 255, 255, 0.4);
-  --radius-lg: 20px;
-  --radius-md: 14px;
+  --radius-lg: 1.25rem;
+  --radius-md: 0.875rem;
+
+  /* Typography Scale */
+  --font-xs: 0.75rem;
+  --font-sm: 0.875rem;
+  --font-base: 1rem;
+  --font-lg: 1.125rem;
+  --font-xl: 1.25rem;
+  --font-2xl: 1.5rem;
+  --font-3xl: 1.875rem;
 }
 
 /* Dark Mode Overrides */
@@ -67,6 +77,12 @@
   --border-color: rgba(255, 255, 255, 0.08);
 }
 
+html {
+  font-size: 16px;
+  /* Base for rem */
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -76,19 +92,18 @@ body {
   -moz-osx-font-smoothing: grayscale;
 
   background-color: var(--background-color);
-  /* The mesh gradient animation */
   background-image:
     radial-gradient(at 0% 0%, var(--mesh-1) 0px, transparent 50%),
     radial-gradient(at 100% 0%, var(--mesh-2) 0px, transparent 50%),
     radial-gradient(at 100% 100%, var(--mesh-3) 0px, transparent 50%),
     radial-gradient(at 0% 100%, var(--mesh-4) 0px, transparent 50%);
   background-size: 200% 200%;
-  /* Allows movement */
   animation: meshMove 20s ease infinite alternate;
 
   color: var(--text-primary);
   min-height: 100vh;
   transition: all 0.5s ease;
+  line-height: 1.5;
 }
 
 @keyframes meshMove {
@@ -101,8 +116,14 @@ body {
   }
 }
 
+/* Global Responsive Images */
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
 /* Card Styles */
-/* Card Styles - Frost Glass */
 .card,
 .navbar-container {
   background: var(--card-background);
@@ -125,6 +146,9 @@ body {
   border: none;
   cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s;
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
 }
 
 .btn-primary:hover {
@@ -134,7 +158,7 @@ body {
 
 /* Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 0.5rem;
 }
 
 ::-webkit-scrollbar-track {
@@ -143,7 +167,7 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: #cbd5e0;
-  border-radius: 4px;
+  border-radius: 0.25rem;
 }
 
 /* Transitions */
@@ -153,10 +177,13 @@ textarea {
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
-/* Navigation Padding Fix for Mobile */
-@media (max-width: 850px) {
+/* Mobile-First Layout Spacing */
+body {
+  padding-bottom: 4rem;
+}
+
+@media (min-width: 851px) {
   body {
-    padding-bottom: 70px;
-    /* Space for bottom nav */
+    padding-bottom: 0;
   }
 }

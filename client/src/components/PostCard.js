@@ -342,6 +342,7 @@ const PostCard = ({ post, user, refreshPosts }) => {
                         src={post.userPicturePath || "https://cdn-icons-png.flaticon.com/512/149/149071.png"}
                         alt="user"
                         className="post-avatar"
+                        loading="lazy"
                     />
                     <div className="post-user-details">
                         <div style={{ display: "flex", alignItems: "center", gap: "5px", flexWrap: "wrap" }}>
@@ -458,6 +459,7 @@ const PostCard = ({ post, user, refreshPosts }) => {
                         alt="post"
                         className="post-image"
                         onDoubleClick={() => handleLike("like")}
+                        loading="lazy"
                     />
                 </div>
             )}
