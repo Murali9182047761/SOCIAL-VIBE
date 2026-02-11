@@ -387,59 +387,82 @@ export const SocketProvider = ({ children }) => {
         }
     }, [stream]);
 
+    const stopScreenSharing = useCallback((screenStream) => {
+        if (!screenStream) return;
+
+        const videoTrack = stream.getVideoTracks()[0];
+        const screenTrack = screenStream.getTracks()[0];
+
+        if (connectionRef.current && videoTrack && screenTrack) {
+            connectionRef.current.replaceTrack(screenTrack, videoTrack, stream);
+        }
+
+        peersRef.current.forEach(p => {
+            if (videoTrack && screenTrack) {
+                p.peer.replaceTrack(screenTrack, videoTrack, stream);
+            }
+        });
+
+        if (myVideo.current) {
+            myVideo.current.srcObject = stream;
+        }
+        setIsScreenSharing(false);
+        if (screenStream) {
+            screenStream.getTracks().forEach(track => track.stop());
+        }
+    }, [stream]);
+
     const toggleScreenShare = useCallback(async () => {
+        if (!navigator.mediaDevices.getDisplayMedia) {
+            alert("Screen sharing is not supported in this browser. Please use a desktop browser or a modern mobile browser like Chrome/Safari.");
+            return;
+        }
+
         if (!isScreenSharing) {
             try {
-                const screenStream = await navigator.mediaDevices.getDisplayMedia({ cursor: true });
+                const screenStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: true, // More robust for mobile support
+                    cursor: "always"
+                });
                 const screenTrack = screenStream.getTracks()[0];
 
                 // Single call track replacement
                 if (connectionRef.current) {
                     const videoTrack = stream.getVideoTracks()[0];
-                    connectionRef.current.replaceTrack(videoTrack, screenTrack, stream);
+                    if (videoTrack) {
+                        connectionRef.current.replaceTrack(videoTrack, screenTrack, stream);
+                    }
                 }
 
                 // Group call track replacement
                 peersRef.current.forEach(p => {
                     const videoTrack = stream.getVideoTracks()[0];
-                    p.peer.replaceTrack(videoTrack, screenTrack, stream);
+                    if (videoTrack) {
+                        p.peer.replaceTrack(videoTrack, screenTrack, stream);
+                    }
                 });
 
-                myVideo.current.srcObject = screenStream;
+                if (myVideo.current) {
+                    myVideo.current.srcObject = screenStream;
+                }
                 setIsScreenSharing(true);
 
                 screenTrack.onended = () => {
-                    const videoTrack = stream.getVideoTracks()[0];
-                    if (connectionRef.current) {
-                        connectionRef.current.replaceTrack(screenTrack, videoTrack, stream);
-                    }
-                    peersRef.current.forEach(p => {
-                        p.peer.replaceTrack(screenTrack, videoTrack, stream);
-                    });
-                    myVideo.current.srcObject = stream;
-                    setIsScreenSharing(false);
-                    screenStream.getTracks().forEach(track => track.stop());
+                    stopScreenSharing(screenStream);
                 };
             } catch (error) {
                 console.error("Error sharing screen:", error);
+                if (error.name === 'NotAllowedError') {
+                    alert("Permission to share screen was denied.");
+                } else {
+                    alert("Unable to start screen sharing. Note: Some mobile browsers restrict this feature for privacy.");
+                }
             }
         } else {
-            // Stop sharing logic (same as onended)
             const screenStream = myVideo.current.srcObject;
-            const screenTrack = screenStream.getTracks()[0];
-            const videoTrack = stream.getVideoTracks()[0];
-
-            if (connectionRef.current) {
-                connectionRef.current.replaceTrack(screenTrack, videoTrack, stream);
-            }
-            peersRef.current.forEach(p => {
-                p.peer.replaceTrack(screenTrack, videoTrack, stream);
-            });
-            myVideo.current.srcObject = stream;
-            setIsScreenSharing(false);
-            screenStream.getTracks().forEach(track => track.stop());
+            stopScreenSharing(screenStream);
         }
-    }, [isScreenSharing, stream]);
+    }, [isScreenSharing, stream, stopScreenSharing]);
 
     return (
         <SocketContext.Provider value={{
