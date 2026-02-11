@@ -1,16 +1,15 @@
 import { useEffect, useState, useRef } from "react";
 import { ChatState } from "../../context/ChatProvider";
 import axios from "axios";
-import { API_URL, SERVER_URL } from "../../config";
+import { API_URL } from "../../config";
 import "./SingleChat.css";
-import io from "socket.io-client";
-import { AiOutlineSend, AiOutlinePaperClip, AiFillDelete, AiOutlineInfoCircle } from "react-icons/ai";
+import { useSocket } from "../../context/SocketContext";
+import { AiOutlineSend, AiOutlinePaperClip, AiFillDelete, AiOutlineInfoCircle, AiOutlineVideoCamera, AiOutlinePhone } from "react-icons/ai";
 import { BsEmojiSmile } from "react-icons/bs";
 import { MdMic, MdStop } from "react-icons/md";
 import EmojiPicker from "emoji-picker-react";
 
-const ENDPOINT = SERVER_URL;
-var socket, selectedChatCompare;
+var selectedChatCompare;
 
 const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     const [messages, setMessages] = useState([]);
@@ -31,6 +30,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     const timerRef = useRef(null);
 
     const { user, selectedChat, setSelectedChat, notification, setNotification, setOnlineUsers } = ChatState();
+    const { socket, callUser, setStream } = useSocket();
 
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
@@ -40,7 +40,8 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     };
 
     useEffect(() => {
-        socket = io(ENDPOINT);
+        if (!socket) return;
+
         socket.emit("setup", user);
         socket.on("connected", () => setSocketConnected(true));
         socket.on("typing", () => setIsTyping(true));
@@ -52,11 +53,8 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         socket.on("message deleted", (messageId) => {
             setMessages(prev => prev.filter(m => m._id !== messageId));
         });
+    }, [user, socket, setOnlineUsers]);
 
-        return () => {
-            socket.disconnect();
-        }
-    }, [user, setOnlineUsers]);
 
     useEffect(() => {
         fetchMessages();
@@ -451,7 +449,40 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                         </div>
 
                         {/* Chat Options (For both Group and Single) */}
-                        <div style={{ position: "relative" }}>
+                        <div style={{ position: "relative", display: "flex", alignItems: "center", gap: "15px" }}>
+                            {!selectedChat.isGroupChat && (
+                                <>
+                                    <AiOutlinePhone
+                                        size={24}
+                                        style={{ cursor: "pointer", color: "var(--text-primary)" }}
+                                        onClick={async () => {
+                                            const otherUser = selectedChat.users.find(u => u._id !== user._id);
+                                            try {
+                                                const currentStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                                                setStream(currentStream);
+                                                callUser(otherUser._id, 'voice', currentStream);
+                                            } catch (err) {
+                                                alert("Microphone access denied");
+                                            }
+                                        }}
+                                    />
+                                    <AiOutlineVideoCamera
+                                        size={24}
+                                        style={{ cursor: "pointer", color: "var(--text-primary)" }}
+                                        onClick={async () => {
+                                            const otherUser = selectedChat.users.find(u => u._id !== user._id);
+                                            try {
+                                                const currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                                                setStream(currentStream);
+                                                callUser(otherUser._id, 'video', currentStream);
+                                            } catch (err) {
+                                                alert("Camera/Microphone access denied");
+                                            }
+                                        }}
+                                    />
+
+                                </>
+                            )}
                             <AiOutlineInfoCircle
                                 size={24}
                                 style={{ cursor: "pointer", color: "var(--text-primary)" }}

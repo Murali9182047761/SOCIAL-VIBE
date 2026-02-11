@@ -1,6 +1,6 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { AiOutlineSearch, AiFillHome, AiOutlineMessage, AiOutlineBell, AiOutlinePlusSquare } from "react-icons/ai";
+import { AiOutlineSearch, AiFillHome, AiOutlineMessage, AiOutlineBell } from "react-icons/ai";
 import { FaMoon, FaSun, FaUserCircle } from "react-icons/fa";
 import "./Navbar.css";
 

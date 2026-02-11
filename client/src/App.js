@@ -18,6 +18,8 @@ import Settings from "./pages/Settings";
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ChatProvider from "./context/ChatProvider";
+import { SocketProvider } from "./context/SocketContext";
+import CallDisplay from "./components/chat/CallDisplay";
 
 import { useState, useEffect } from "react";
 
@@ -90,108 +92,111 @@ function App() {
         </div>
       )}
       <ChatProvider>
-        <Navbar />
-        <Routes>
-          {/* Default */}
-          <Route path="/" element={<Navigate to="/login" />} />
+        <SocketProvider>
+          <CallDisplay />
+          <Navbar />
+          <Routes>
+            {/* Default */}
+            <Route path="/" element={<Navigate to="/login" />} />
 
-          {/* Public routes */}
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password/:resetToken" element={<ResetPassword />} />
+            {/* Public routes */}
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password/:resetToken" element={<ResetPassword />} />
 
-          {/* Protected routes */}
-          <Route
-            path="/home"
-            element={
-              <ProtectedRoute>
-                <Home />
-              </ProtectedRoute>
-            }
-          />
+            {/* Protected routes */}
+            <Route
+              path="/home"
+              element={
+                <ProtectedRoute>
+                  <Home />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/profile/:userId"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/chat"
-            element={
-              <ProtectedRoute>
-                <Chat />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/notifications"
-            element={
-              <ProtectedRoute>
-                <Notifications />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/search"
-            element={
-              <ProtectedRoute>
-                <SearchPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/saved"
-            element={
-              <ProtectedRoute>
-                <SavedPosts />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/communities"
-            element={
-              <ProtectedRoute>
-                <Communities />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/manage-posts"
-            element={
-              <ProtectedRoute>
-                <ManagePosts />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/archived"
-            element={
-              <ProtectedRoute>
-                <ArchivedPosts />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute>
-                <Settings />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile/:userId"
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/chat"
+              element={
+                <ProtectedRoute>
+                  <Chat />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/notifications"
+              element={
+                <ProtectedRoute>
+                  <Notifications />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/search"
+              element={
+                <ProtectedRoute>
+                  <SearchPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/saved"
+              element={
+                <ProtectedRoute>
+                  <SavedPosts />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/communities"
+              element={
+                <ProtectedRoute>
+                  <Communities />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/manage-posts"
+              element={
+                <ProtectedRoute>
+                  <ManagePosts />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/archived"
+              element={
+                <ProtectedRoute>
+                  <ArchivedPosts />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <Settings />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </SocketProvider>
       </ChatProvider>
     </BrowserRouter>
   );

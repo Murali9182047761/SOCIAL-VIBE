@@ -102,6 +102,22 @@ io.on("connection", (socket) => {
   socket.on("typing", (room) => socket.in(room).emit("typing"));
   socket.on("stop typing", (room) => socket.in(room).emit("stop typing"));
 
+  // ===== CALL EVENTS =====
+  socket.on("callUser", ({ userToCall, signalData, from, name, type }) => {
+    console.log(`Calling user ${userToCall} from ${from} (type: ${type})`);
+    io.to(userToCall).emit("callUser", { signal: signalData, from, name, type });
+  });
+
+  socket.on("answerCall", (data) => {
+    console.log(`Answering call to ${data.to}`);
+    io.to(data.to).emit("callAccepted", data.signal);
+  });
+
+  socket.on("endCall", ({ to }) => {
+    console.log(`Ending call to ${to}`);
+    io.to(to).emit("callEnded");
+  });
+
   socket.on("new message", (newMessageRecieved) => {
     const chat = newMessageRecieved.chat;
     if (!chat.users) return;
