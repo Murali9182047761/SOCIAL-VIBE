@@ -13,12 +13,19 @@ exports.accessChat = async (req, res) => {
     var isChat = await Chat.find({
         isGroupChat: false,
         $and: [
-            { users: { $elemMatch: { $eq: req.user.id } } }, // Current user
+            { users: { $elemMatch: { $eq: req.user._id } } }, // Current user
             { users: { $elemMatch: { $eq: userId } } }, // Target user
         ],
     })
         .populate("users", "-password")
         .populate("latestMessage");
+
+    // If chat exists, make sure it's not hidden for the current user
+    if (isChat.length > 0) {
+        await Chat.findByIdAndUpdate(isChat[0]._id, {
+            $pull: { removedBy: req.user._id }
+        });
+    }
 
     isChat = await User.populate(isChat, {
         path: "latestMessage.sender",
@@ -51,7 +58,10 @@ exports.accessChat = async (req, res) => {
 // Fetch all chats for a user
 exports.fetchChats = async (req, res) => {
     try {
-        Chat.find({ users: { $elemMatch: { $eq: req.user.id } } })
+        Chat.find({
+            users: { $elemMatch: { $eq: req.user._id } },
+            removedBy: { $ne: req.user._id }
+        })
             .populate("users", "-password")
             .populate("groupAdmin", "-password")
             .populate("latestMessage")
@@ -226,4 +236,29 @@ exports.deleteGroup = async (req, res) => {
 
     await Chat.findByIdAndDelete(chatId);
     res.status(200).json({ message: "Group Deleted Successfully" });
+};
+
+// Delete/Hide Chat for User
+exports.deleteChat = async (req, res) => {
+    const { chatId } = req.params;
+
+    try {
+        console.log(`🗑️ Hiding chat ${chatId} for user ${req.user._id}`);
+        const chat = await Chat.findByIdAndUpdate(
+            chatId,
+            {
+                $addToSet: { removedBy: req.user._id }
+            },
+            { new: true }
+        );
+
+        if (!chat) {
+            return res.status(404).json({ message: "Chat Not Found" });
+        }
+
+        res.status(200).json({ message: "Chat Removed Successfully" });
+    } catch (error) {
+        console.error("❌ Delete Chat Error:", error);
+        res.status(400).json({ message: error.message });
+    }
 };

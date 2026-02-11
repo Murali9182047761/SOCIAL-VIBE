@@ -301,6 +301,20 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         }
     }
 
+    const handleDeleteChat = async () => {
+        if (!window.confirm("Delete this chat? This will remove it from your chat list.")) return;
+        try {
+            const config = { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } };
+            await axios.delete(`${API_URL}/chat/${selectedChat._id}`, config);
+
+            setSelectedChat(null);
+            setFetchAgain(!fetchAgain);
+        } catch (error) {
+            console.error("Failed to delete chat", error);
+            alert("Failed to delete chat");
+        }
+    }
+
     const handleEmojiClick = (emojiObject) => {
         setNewMessage((prev) => prev + emojiObject.emoji);
     };
@@ -540,10 +554,17 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                                     )}
                                     <div
                                         onClick={handleClearChat}
-                                        style={{ padding: "10px", cursor: "pointer", fontSize: "14px", color: "brown" }}
+                                        style={{ padding: "10px", cursor: "pointer", fontSize: "14px", color: "brown", borderBottom: "1px solid #eee" }}
                                         className="hover-bg"
                                     >
                                         Clear Chat
+                                    </div>
+                                    <div
+                                        onClick={handleDeleteChat}
+                                        style={{ padding: "10px", cursor: "pointer", fontSize: "14px", color: "red" }}
+                                        className="hover-bg"
+                                    >
+                                        Delete Chat
                                     </div>
                                 </div>
                             )}

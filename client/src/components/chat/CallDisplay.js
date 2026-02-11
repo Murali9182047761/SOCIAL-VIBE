@@ -34,13 +34,13 @@ const CallDisplay = () => {
     } = useSocket();
 
     useEffect(() => {
-        if ((call.isReceivingCall && !callAccepted) || (callAccepted && !callEnded) || (stream)) {
+        if ((call.isReceivingCall && !callAccepted) || (call.isCalling && !callAccepted) || (callAccepted && !callEnded) || (stream)) {
             // Prevent body scroll when call is active
             document.body.style.overflow = 'hidden';
         } else {
             document.body.style.overflow = 'auto';
         }
-    }, [call.isReceivingCall, callAccepted, callEnded, stream, call, callType]);
+    }, [call.isReceivingCall, call.isCalling, callAccepted, callEnded, stream, call, callType]);
 
     useEffect(() => {
         if (myVideo.current && stream && !isScreenSharing) {
