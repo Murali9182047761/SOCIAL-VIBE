@@ -460,7 +460,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                                             try {
                                                 const currentStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                                                 setStream(currentStream);
-                                                callUser(otherUser._id, 'voice', currentStream);
+                                                callUser(otherUser._id, otherUser.name, 'voice', currentStream);
                                             } catch (err) {
                                                 alert("Microphone access denied");
                                             }
@@ -474,7 +474,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                                             try {
                                                 const currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                                                 setStream(currentStream);
-                                                callUser(otherUser._id, 'video', currentStream);
+                                                callUser(otherUser._id, otherUser.name, 'video', currentStream);
                                             } catch (err) {
                                                 alert("Camera/Microphone access denied");
                                             }

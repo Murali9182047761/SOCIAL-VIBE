@@ -29,7 +29,8 @@ const CallDisplay = () => {
         isScreenSharing,
         toggleVideo,
         toggleAudio,
-        toggleScreenShare
+        toggleScreenShare,
+        callStatus
     } = useSocket();
 
     useEffect(() => {
@@ -45,15 +46,15 @@ const CallDisplay = () => {
         if (myVideo.current && stream && !isScreenSharing) {
             myVideo.current.srcObject = stream;
         }
-    }, [stream, myVideo, isScreenSharing]);
+    }, [stream, myVideo, isScreenSharing, callAccepted]);
 
     useEffect(() => {
         if (userVideo.current && remoteStream) {
             userVideo.current.srcObject = remoteStream;
         }
-    }, [remoteStream, userVideo]);
+    }, [remoteStream, userVideo, callAccepted]);
 
-    if (!call.isReceivingCall && !stream && !callAccepted) return null;
+    if (!call.isReceivingCall && !call.isCalling && !stream && !callAccepted) return null;
 
     return (
         <div style={{
@@ -136,6 +137,62 @@ const CallDisplay = () => {
                         </button>
                         <button
                             onClick={() => leaveCall(call.from)}
+                            style={{
+                                background: '#e74c3c',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '70px',
+                                height: '70px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'white',
+                                transition: 'transform 0.2s',
+                                boxShadow: '0 4px 15px rgba(231, 76, 60, 0.4)'
+                            }}
+                            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                        >
+                            <MdCallEnd size={35} />
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Outgoing Call Notification */}
+            {call.isCalling && !callAccepted && (
+                <div style={{
+                    textAlign: 'center',
+                    background: 'rgba(34, 34, 34, 0.9)',
+                    padding: '50px',
+                    borderRadius: '24px',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                    border: '1px solid rgba(255,255,255,0.1)'
+                }}>
+                    <div style={{ marginBottom: '20px' }}>
+                        <div style={{
+                            width: '100px',
+                            height: '100px',
+                            borderRadius: '50%',
+                            background: 'linear-gradient(45deg, #6e8efb, #a777e3)',
+                            margin: '0 auto',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '40px',
+                            fontWeight: 'bold'
+                        }}>
+                            {call.name ? call.name[0].toUpperCase() : '?'}
+                        </div>
+                    </div>
+                    <h2 style={{ fontSize: '24px', marginBottom: '10px' }}>{call.name}</h2>
+                    <p style={{ color: '#6e8efb', fontSize: '20px', fontWeight: '500', marginBottom: '30px' }}>
+                        {callStatus || 'Calling...'}
+                    </p>
+                    <div style={{ display: 'flex', gap: '30px', justifyContent: 'center' }}>
+                        <button
+                            onClick={() => leaveCall()}
                             style={{
                                 background: '#e74c3c',
                                 border: 'none',

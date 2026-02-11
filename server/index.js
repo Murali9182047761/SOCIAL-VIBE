@@ -113,6 +113,11 @@ io.on("connection", (socket) => {
     io.to(data.to).emit("callAccepted", data.signal);
   });
 
+  socket.on("ringing", (data) => {
+    console.log(`Relaying ringing status to ${data.to}`);
+    io.to(data.to).emit("ringing");
+  });
+
   socket.on("endCall", ({ to }) => {
     console.log(`Ending call to ${to}`);
     io.to(to).emit("callEnded");

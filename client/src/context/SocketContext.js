@@ -19,6 +19,7 @@ export const SocketProvider = ({ children }) => {
     const [name, setName] = useState('');
     const [callType, setCallType] = useState('video'); // 'video' or 'voice'
     const [otherUserId, setOtherUserId] = useState(null);
+    const [callStatus, setCallStatus] = useState(''); // 'Calling...', 'Ringing...', etc.
 
     // Track states
     const [isVideoMuted, setIsVideoMuted] = useState(false);
@@ -49,6 +50,7 @@ export const SocketProvider = ({ children }) => {
         setIsScreenSharing(false);
         setIsVideoMuted(false);
         setIsAudioMuted(false);
+        setCallStatus('');
 
         const currentStream = streamRef.current;
         if (currentStream) {
@@ -83,6 +85,12 @@ export const SocketProvider = ({ children }) => {
             setCall({ isReceivingCall: true, from, name: callerName, signal, type });
             setCallType(type);
             setOtherUserId(from);
+            newSocket.emit('ringing', { to: from });
+        });
+
+        newSocket.on('ringing', () => {
+            console.log("🔔 Call is ringing on remote side");
+            setCallStatus('Ringing...');
         });
 
         newSocket.on('callEnded', () => {
@@ -130,8 +138,10 @@ export const SocketProvider = ({ children }) => {
         connectionRef.current = peer;
     }, [call.from, call.signal, socket]);
 
-    const callUser = useCallback((id, type, currentStream) => {
+    const callUser = useCallback((id, recipientName, type, currentStream) => {
         console.log("📞 Initiating Call to:", id, "Type:", type);
+        setCall({ isCalling: true, name: recipientName, type });
+        setCallStatus('Calling...');
         setCallType(type);
         setCallAccepted(false);
         setCallEnded(false);
@@ -173,6 +183,7 @@ export const SocketProvider = ({ children }) => {
         socket.once('callAccepted', (signal) => {
             console.log("✅ Handshake: Call accepted by remote");
             setCallAccepted(true);
+            setCallStatus('Connected');
             peer.signal(signal);
         });
 
@@ -274,7 +285,8 @@ export const SocketProvider = ({ children }) => {
             isScreenSharing,
             toggleVideo,
             toggleAudio,
-            toggleScreenShare
+            toggleScreenShare,
+            callStatus
         }}>
             {children}
         </SocketContext.Provider>
