@@ -87,52 +87,56 @@ export const SocketProvider = ({ children }) => {
     // Stable User ID for dependencies
     const userId = user?._id;
 
-    // Group Call Signaling Helpers
-    const createPeer = useCallback((userToSignal, callerID, stream, socket) => {
-        const peer = new Peer({
-            initiator: true,
-            trickle: false,
-            stream,
-            config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
-        });
-
-        peer.on("signal", signal => {
-            socket.emit("sending-signal", { userToSignal, callerID, signal, userName: user?.name });
-        });
-
-        peer.on("stream", (remoteStream) => {
-            console.log("🎥 Received remote stream from peer:", userToSignal);
-            setGroupPeers(prev => prev.map(p => p.peerID === userToSignal ? { ...p, stream: remoteStream } : p));
-        });
-
-        return peer;
-    }, [user?.name]);
-
-    const addPeer = useCallback((incomingSignal, callerID, stream, socket) => {
-        const peer = new Peer({
-            initiator: false,
-            trickle: false,
-            stream,
-            config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
-        });
-
-        peer.on("signal", signal => {
-            // callerID is the person who initiated, so we return signal to them
-            socket.emit("returning-signal", { signal, callerID, userName: user?.name });
-        });
-
-        peer.on("stream", (remoteStream) => {
-            console.log("🎥 Receiver side: Received remote stream from peer:", callerID);
-            setGroupPeers(prev => prev.map(p => p.peerID === callerID ? { ...p, stream: remoteStream } : p));
-        });
-
-        peer.signal(incomingSignal);
-
-        return peer;
-    }, [user?.name]);
-
     useEffect(() => {
         if (!userId) return;
+
+        // Signaling Helper inside stable effect to avoid closures issues
+        const createPeer = (userToSignal, callerID, stream, socket) => {
+            console.log("🛠️ Creating initiator peer for:", userToSignal);
+            const peer = new Peer({
+                initiator: true,
+                trickle: false,
+                stream,
+                config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+            });
+
+            peer.on("signal", signal => {
+                socket.emit("sending-signal", { userToSignal, callerID, signal, userName: user?.name });
+            });
+
+            peer.on("stream", (remoteStream) => {
+                console.log("🎥 Received remote stream from peer (Initiator):", userToSignal);
+                setGroupPeers(prev => prev.map(p => p.peerID === userToSignal ? { ...p, stream: remoteStream } : p));
+            });
+
+            peer.on("error", (err) => console.error("❌ PEER ERROR (Group Initiator):", err));
+
+            return peer;
+        };
+
+        const addPeer = (incomingSignal, callerID, stream, socket) => {
+            console.log("🛠️ Creating receiver peer for:", callerID);
+            const peer = new Peer({
+                initiator: false,
+                trickle: false,
+                stream,
+                config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+            });
+
+            peer.on("signal", signal => {
+                socket.emit("returning-signal", { signal, callerID, userName: user?.name });
+            });
+
+            peer.on("stream", (remoteStream) => {
+                console.log("🎥 Received remote stream from peer (Receiver):", callerID);
+                setGroupPeers(prev => prev.map(p => p.peerID === callerID ? { ...p, stream: remoteStream } : p));
+            });
+
+            peer.on("error", (err) => console.error("❌ PEER ERROR (Group Receiver):", err));
+
+            peer.signal(incomingSignal);
+            return peer;
+        };
 
         console.log("🔌 Attempting Socket Connection for:", user?.name);
         const newSocket = io(SERVER_URL);
@@ -158,14 +162,14 @@ export const SocketProvider = ({ children }) => {
             const peers = [];
             users.forEach(userID => {
                 const peer = createPeer(userID, newSocket.id, streamRef.current, newSocket);
-                peersRef.current.push({
+                const peerObj = {
                     peerID: userID,
                     peer,
-                });
-                peers.push({
-                    peerID: userID,
-                    peer,
-                });
+                    userName: 'Participant',
+                    stream: null
+                };
+                peersRef.current.push(peerObj);
+                peers.push(peerObj);
             });
             setGroupPeers(peers);
         });
@@ -173,12 +177,14 @@ export const SocketProvider = ({ children }) => {
         newSocket.on("user joined call", (payload) => {
             console.log("👤 New user joined group call:", payload.callerID, payload.userName);
             const peer = addPeer(payload.signal, payload.callerID, streamRef.current, newSocket);
-            peersRef.current.push({
+            const peerObj = {
                 peerID: payload.callerID,
                 peer,
-            });
-
-            setGroupPeers(users => [...users, { peerID: payload.callerID, peer, userName: payload.userName }]);
+                userName: payload.userName,
+                stream: null
+            };
+            peersRef.current.push(peerObj);
+            setGroupPeers(prev => [...prev, peerObj]);
         });
 
         newSocket.on("receiving returned signal", (payload) => {
@@ -187,17 +193,17 @@ export const SocketProvider = ({ children }) => {
             if (item) {
                 item.peer.signal(payload.signal);
             }
-            setGroupPeers(users => users.map(u => u.peerID === payload.id ? { ...u, userName: payload.userName } : u));
+            setGroupPeers(prev => prev.map(u => u.peerID === payload.id ? { ...u, userName: payload.userName } : u));
         });
 
         newSocket.on("user left call", (id) => {
+            console.log("🚪 User left group call:", id);
             const peerObj = peersRef.current.find(p => p.peerID === id);
-            if (peerObj) {
-                peerObj.peer.destroy();
+            if (peerObj && peerObj.peer) {
+                try { peerObj.peer.destroy(); } catch (e) { }
             }
-            const peers = peersRef.current.filter(p => p.peerID !== id);
-            peersRef.current = peers;
-            setGroupPeers(peers);
+            peersRef.current = peersRef.current.filter(p => p.peerID !== id);
+            setGroupPeers(prev => prev.filter(p => p.peerID !== id));
         });
 
         newSocket.on('ringing', () => {
@@ -217,19 +223,20 @@ export const SocketProvider = ({ children }) => {
 
         return () => {
             if (newSocket) {
-                console.log("🔌 Disconnecting Socket and cleaning up peers");
+                console.log("🔌 Disconnecting Socket and cleaning up peers stage 1");
                 newSocket.disconnect();
                 setSocket(null);
-
-                // Cleanup peers on socket disconnect to prevent stale connections
-                peersRef.current.forEach(p => {
-                    try { p.peer.destroy(); } catch (e) { }
-                });
-                peersRef.current = [];
-                setGroupPeers([]);
             }
         };
-    }, [userId, user, handleCallTermination, addPeer, createPeer]);
+    }, [userId, user?.name, handleCallTermination]);
+
+    // Final cleanup Effect
+    useEffect(() => {
+        return () => {
+            console.log("🛑 SocketProvider unmounting, final cleanup");
+            handleCallTermination();
+        };
+    }, [handleCallTermination]);
 
 
 

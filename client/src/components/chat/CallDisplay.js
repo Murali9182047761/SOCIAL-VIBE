@@ -349,8 +349,8 @@ const CallDisplay = () => {
                             </div>
 
                             {/* Remote Peers in Grid */}
-                            {groupPeers.map((peerObj, index) => (
-                                <GroupVideoParticipant key={index} peerObj={peerObj} />
+                            {groupPeers.map((peerObj) => (
+                                <GroupVideoParticipant key={peerObj.peerID} peerObj={peerObj} />
                             ))}
                         </div>
                     ) : (
